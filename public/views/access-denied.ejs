@@ -1,0 +1,17 @@
+<%- include("partials/layout-top", { title: "Access Denied" }) %>
+
+<section class="card page-head">
+  <h2>Access Denied</h2>
+  <p><%= message || "You do not have permission to access this page." %></p>
+  <div class="actions">
+    <a class="btn secondary" href="<%= rolePath('/') %>">Back Home</a>
+  </div>
+</section>
+
+<section class="card">
+  <p class="muted">
+    This section is restricted to administrators. Log in with an administrator account to continue.
+  </p>
+</section>
+
+<%- include("partials/layout-bottom") %>

@@ -1,0 +1,72 @@
+<%- include("partials/layout-top", { title: "Pay Bill" }) %>
+
+<%
+  const data = bill || {};
+  const paidAlready = String(data.status || "").toLowerCase() === "paid";
+  const payment = existingPayment || null;
+%>
+
+<section class="card page-head">
+  <h2>Pay Bill</h2>
+  <p>Bill ID: <strong><%= data.bill_id || "-" %></strong></p>
+  <div class="actions">
+    <a class="btn secondary" href="<%= rolePath('/bills') %>">Back to Bills</a>
+    <a class="btn secondary" href="<%= rolePath('/payments') %>">View Payments</a>
+  </div>
+</section>
+
+<section class="split">
+  <article class="card">
+    <h3>Bill Details</h3>
+    <p><strong>Meter ID:</strong> <%= data.meter_id || "-" %></p>
+    <p><strong>Bill Month:</strong> <%= data.bill_month || "-" %></p>
+    <p><strong>Amount (THB):</strong> <%= formatTHB(data.amount) %></p>
+    <p><strong>Due Date:</strong> <%= data.due_date || "-" %></p>
+    <p><strong>Status:</strong> <%= data.status || "-" %></p>
+  </article>
+
+  <article class="card">
+    <h3>Payment Form</h3>
+
+    <% if (error) { %>
+      <p class="muted"><%= error %></p>
+    <% } %>
+
+    <% if (paidAlready || payment) { %>
+      <div class="empty">
+        This bill is already paid.
+        <% if (payment) { %>
+          <br>
+          Payment ID: <strong><%= payment.payment_id %></strong>
+          <br>
+          Method: <strong><%= payment.payment_method || "-" %></strong>
+          <br>
+          Date: <strong><%= payment.payment_date || "-" %></strong>
+        <% } %>
+      </div>
+    <% } else { %>
+      <form class="form-grid" method="post" action="<%= rolePath('/pay-bill/' + data.bill_id) %>">
+        <div class="field">
+          <label for="payment_method">Payment Method</label>
+          <select id="payment_method" name="payment_method" required>
+            <option value="cash">Cash</option>
+            <option value="card">Card</option>
+            <option value="bank_transfer">Bank Transfer</option>
+            <option value="mobile_wallet">Mobile Wallet</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="transaction_ref">Transaction Reference (optional)</label>
+          <input id="transaction_ref" name="transaction_ref" type="text" maxlength="120" placeholder="TXN-12345">
+        </div>
+
+        <div class="actions">
+          <button class="btn" type="submit">Confirm Payment</button>
+        </div>
+      </form>
+    <% } %>
+  </article>
+</section>
+
+<%- include("partials/layout-bottom") %>

@@ -1,0 +1,221 @@
+<%- include("partials/layout-top", { title: "Home Dashboard" }) %>
+
+<%
+  const dashboard = home || {};
+  const mode = dashboard.mode || (isAdmin ? "admin" : "user");
+  const data = dashboard.summary || {};
+  const urgentBills = Array.isArray(dashboard.urgentBills) ? dashboard.urgentBills : [];
+  const recentBills = Array.isArray(dashboard.recentBills) ? dashboard.recentBills : [];
+  const recentPayments = Array.isArray(dashboard.recentPayments) ? dashboard.recentPayments : [];
+  const pageError = dashboard.error || null;
+%>
+
+<section class="card page-head">
+  <h2>Home Dashboard</h2>
+  <p>
+    <% if (mode === "admin") { %>
+      Operational overview with the most urgent billing tasks first.
+    <% } else { %>
+      Personal overview of your bills, payments, and what needs attention next.
+    <% } %>
+  </p>
+  <div class="actions">
+    <% if (mode === "admin") { %>
+      <a class="btn" href="<%= rolePath('/admin-dashboard') %>">Open Admin Dashboard</a>
+      <a class="btn secondary" href="<%= rolePath('/users') %>">Manage Users</a>
+      <a class="btn secondary" href="<%= rolePath('/bills') %>">Manage Bills</a>
+      <a class="btn secondary" href="<%= rolePath('/payments') %>">Review Payments</a>
+    <% } else { %>
+      <a class="btn" href="<%= rolePath('/user-dashboard') %>">Open My Dashboard</a>
+      <a class="btn secondary" href="<%= rolePath('/bills') %>">View Bills</a>
+      <a class="btn secondary" href="<%= rolePath('/payments') %>">View Payments</a>
+    <% } %>
+  </div>
+</section>
+
+<% if (pageError) { %>
+  <section class="card">
+    <p class="muted"><%= pageError %></p>
+  </section>
+<% } %>
+
+<% if (mode === "admin") { %>
+  <section class="split">
+    <article class="card">
+      <h3>Users</h3>
+      <p><strong><%= data.usersCount || 0 %></strong></p>
+    </article>
+    <article class="card">
+      <h3>Meters</h3>
+      <p><strong><%= data.metersCount || 0 %></strong></p>
+    </article>
+    <article class="card">
+      <h3>Utilities</h3>
+      <p><strong><%= data.utilitiesCount || 0 %></strong></p>
+    </article>
+    <article class="card">
+      <h3>Open Bills</h3>
+      <p><strong><%= data.openBillsCount || 0 %></strong></p>
+    </article>
+    <article class="card">
+      <h3>Outstanding Amount</h3>
+      <p><strong><%= formatTHB(data.outstandingAmount || 0) %></strong></p>
+    </article>
+  </section>
+
+  <section class="split">
+    <article class="card">
+      <h3>Urgent Queue</h3>
+      <% if (!urgentBills.length) { %>
+        <div class="empty">No urgent bills in queue.</div>
+      <% } else { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Bill ID</th>
+              <th>Meter</th>
+              <th>Due Date</th>
+              <th>Amount (THB)</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% urgentBills.forEach((bill) => { %>
+              <tr>
+                <td><%= bill.bill_id || "-" %></td>
+                <td><%= bill.meter_id || "-" %></td>
+                <td><%= bill.due_date || "-" %></td>
+                <td><%= formatTHB(bill.amount) %></td>
+                <td><%= bill.status || "-" %></td>
+                <td><a class="btn secondary" href="<%= rolePath('/pay-bill/' + bill.bill_id) %>">Open</a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </article>
+
+    <article class="card">
+      <h3>Recent Payments</h3>
+      <% if (!recentPayments.length) { %>
+        <div class="empty">No recent payments found.</div>
+      <% } else { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Payment ID</th>
+              <th>Bill</th>
+              <th>Method</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% recentPayments.forEach((p) => { %>
+              <tr>
+                <td><%= p.payment_id || "-" %></td>
+                <td><%= p.bill_id || "-" %></td>
+                <td><%= p.payment_method || "-" %></td>
+                <td><%= p.payment_date || "-" %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </article>
+  </section>
+<% } else { %>
+  <section class="split">
+    <article class="card">
+      <h3>My Meters</h3>
+      <p><strong><%= data.metersCount || 0 %></strong></p>
+    </article>
+    <article class="card">
+      <h3>My Bills</h3>
+      <p><strong><%= data.billsCount || 0 %></strong></p>
+    </article>
+    <article class="card">
+      <h3>Open Bills</h3>
+      <p><strong><%= data.openBillsCount || 0 %></strong></p>
+    </article>
+    <article class="card">
+      <h3>Payments Made</h3>
+      <p><strong><%= data.paymentsCount || 0 %></strong></p>
+    </article>
+    <article class="card">
+      <h3>Amount Due</h3>
+      <p><strong><%= formatTHB(data.dueAmount || 0) %></strong></p>
+    </article>
+  </section>
+
+  <section class="card">
+    <h3>Bills Requiring Action</h3>
+    <% if (!recentBills.length) { %>
+      <div class="empty">No upcoming bills found.</div>
+    <% } else { %>
+      <table>
+        <thead>
+          <tr>
+            <th>Bill ID</th>
+            <th>Meter</th>
+            <th>Due Date</th>
+            <th>Amount (THB)</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% recentBills.forEach((bill) => { %>
+            <% const isPaid = String(bill.status || "").toLowerCase() === "paid"; %>
+            <tr>
+              <td><%= bill.bill_id || "-" %></td>
+              <td><%= bill.meter_id || "-" %></td>
+              <td><%= bill.due_date || "-" %></td>
+              <td><%= formatTHB(bill.amount) %></td>
+              <td><%= bill.status || "-" %></td>
+              <td>
+                <% if (isPaid) { %>
+                  <span class="muted">Paid</span>
+                <% } else { %>
+                  <a class="btn" href="<%= rolePath('/pay-bill/' + bill.bill_id) %>">Pay Bill</a>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <h3>Recent Payments</h3>
+    <% if (!recentPayments.length) { %>
+      <div class="empty">No recent payments found.</div>
+    <% } else { %>
+      <table>
+        <thead>
+          <tr>
+            <th>Payment ID</th>
+            <th>Bill</th>
+            <th>Method</th>
+            <th>Date</th>
+            <th>Reference</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% recentPayments.forEach((p) => { %>
+            <tr>
+              <td><%= p.payment_id || "-" %></td>
+              <td><%= p.bill_id || "-" %></td>
+              <td><%= p.payment_method || "-" %></td>
+              <td><%= p.payment_date || "-" %></td>
+              <td><%= p.transaction_ref || "-" %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </section>
+<% } %>
+
+<%- include("partials/layout-bottom") %>

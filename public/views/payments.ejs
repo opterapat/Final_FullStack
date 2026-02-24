@@ -1,0 +1,44 @@
+<%- include("partials/layout-top", { title: "Payments" }) %>
+
+<% const list = Array.isArray(payments) ? payments : []; %>
+<section class="card page-head">
+  <h2>Payments</h2>
+  <p>Total payments: <strong><%= list.length %></strong></p>
+  <% if (message) { %>
+    <p class="muted"><%= message %></p>
+  <% } %>
+  <div class="actions">
+    <a class="btn secondary" href="<%= rolePath('/bills') %>">Go to Bills</a>
+  </div>
+</section>
+
+<section class="card">
+  <% if (!list.length) { %>
+    <div class="empty">No payments found.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Payment ID</th>
+          <th>Bill ID</th>
+          <th>Method</th>
+          <th>Date</th>
+          <th>Transaction Ref</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% list.forEach((p) => { %>
+          <tr>
+            <td><%= p.payment_id || "-" %></td>
+            <td><%= p.bill_id || "-" %></td>
+            <td><%= p.payment_method || "-" %></td>
+            <td><%= p.payment_date || "-" %></td>
+            <td><%= p.transaction_ref || "-" %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include("partials/layout-bottom") %>

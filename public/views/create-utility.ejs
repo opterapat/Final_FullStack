@@ -1,0 +1,22 @@
+<%- include("partials/layout-top", { title: "Create Utility" }) %>
+
+<section class="card page-head">
+  <h2>Create Utility</h2>
+  <p>Add a new utility type.</p>
+</section>
+
+<section class="card">
+  <form class="form-grid" method="post" action="<%= rolePath('/create-utility') %>">
+    <div class="field">
+      <label for="utility_name">Utility Name</label>
+      <input id="utility_name" name="utility_name" type="text" maxlength="120" required>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="submit">Create Utility</button>
+      <a class="btn secondary" href="<%= rolePath('/utilities') %>">Back</a>
+    </div>
+  </form>
+</section>
+
+<%- include("partials/layout-bottom") %>

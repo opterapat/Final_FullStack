@@ -1,0 +1,126 @@
+<%- include("partials/layout-top", { title: "User Detail" }) %>
+
+<%
+  const profile = user || {};
+  const uid = profile.user_id || profile.id;
+  const userMeters = Array.isArray(meters) ? meters : [];
+  const allPayments = Array.isArray(payments) ? payments : [];
+  const billIds = [];
+  userMeters.forEach((m) => {
+    const meterBills = Array.isArray(m.bills) ? m.bills : [];
+    meterBills.forEach((b) => {
+      const bid = String(b.bill_id || b.id || "");
+      if (bid) billIds.push(bid);
+    });
+  });
+  const userPayments = allPayments.filter((p) => billIds.includes(String(p.bill_id || "")));
+%>
+
+<section class="card page-head">
+  <h2>User Detail</h2>
+  <p>User ID: <strong><%= uid || "-" %></strong></p>
+  <div class="actions">
+    <% if (isAdmin) { %>
+      <a class="btn secondary" href="<%= rolePath('/users') %>">Back to Users</a>
+    <% } else { %>
+      <a class="btn secondary" href="<%= rolePath('/bills') %>">Back to Bills</a>
+    <% } %>
+    <% if (uid && isAdmin) { %>
+      <a class="btn" href="<%= rolePath('/update/' + uid) %>">Edit User</a>
+    <% } %>
+  </div>
+</section>
+
+<section class="split">
+  <article class="card">
+    <h3>Profile</h3>
+    <p><strong>Name:</strong> <%= profile.name || "-" %></p>
+    <p><strong>Email:</strong> <%= profile.email || "-" %></p>
+    <p><strong>Phone:</strong> <%= profile.phone || "-" %></p>
+    <p><strong>Role:</strong> <%= profile.role || "user" %></p>
+    <p><strong>Created:</strong> <%= profile.created_at || "-" %></p>
+  </article>
+
+  <article class="card">
+    <h3>Payments for This User</h3>
+    <% if (!userPayments.length) { %>
+      <div class="empty">No payments linked to this user's bills.</div>
+    <% } else { %>
+      <table>
+        <thead>
+          <tr>
+            <th>Payment ID</th>
+            <th>Bill ID</th>
+            <th>Method</th>
+            <th>Date</th>
+            <th>Reference</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% userPayments.forEach((p) => { %>
+            <tr>
+              <td><%= p.payment_id || "-" %></td>
+              <td><%= p.bill_id || "-" %></td>
+              <td><%= p.payment_method || "-" %></td>
+              <td><%= p.payment_date || "-" %></td>
+              <td><%= p.transaction_ref || "-" %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </article>
+</section>
+
+<section class="card">
+  <h3>Meters and Bills</h3>
+  <% if (!userMeters.length) { %>
+    <div class="empty">This user has no meters.</div>
+  <% } else { %>
+    <% userMeters.forEach((m) => { %>
+      <article class="card">
+        <p><strong>Meter ID:</strong> <%= m.meter_id || "-" %></p>
+        <p><strong>Meter Number:</strong> <%= m.meter_number || m.meter_reading || "-" %></p>
+        <p><strong>Utility:</strong> <%= m.utility_name || "-" %></p>
+        <% const meterBills = Array.isArray(m.bills) ? m.bills : []; %>
+        <% if (!meterBills.length) { %>
+          <div class="empty">No bills for this meter.</div>
+        <% } else { %>
+          <table>
+            <thead>
+              <tr>
+                <th>Bill ID</th>
+                <th>Month</th>
+                <th>Amount (THB)</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% meterBills.forEach((b) => { %>
+                <% const paid = String(b.status || "").toLowerCase() === "paid"; %>
+                <tr>
+                  <td><%= b.bill_id || "-" %></td>
+                  <td><%= b.bill_month || "-" %></td>
+                  <td><%= formatTHB(b.amount) %></td>
+                  <td><%= b.due_date || "-" %></td>
+                  <td><%= b.status || "-" %></td>
+                  <td>
+                    <% if (paid) { %>
+                      <span class="muted">Paid</span>
+                    <% } else { %>
+                      <a class="btn" href="<%= rolePath('/pay-bill/' + b.bill_id) %>">Pay Bill</a>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } %>
+      </article>
+    <% }) %>
+  <% } %>
+</section>
+
+<%- include("partials/layout-bottom") %>

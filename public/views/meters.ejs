@@ -1,0 +1,41 @@
+<%- include("partials/layout-top", { title: "Meters" }) %>
+
+<% const list = Array.isArray(meters) ? meters : []; %>
+<section class="card page-head">
+  <h2>Meters</h2>
+  <p>Total meters: <strong><%= list.length %></strong></p>
+  <div class="actions">
+    <a class="btn" href="<%= rolePath('/create-meter') %>">Create Meter</a>
+  </div>
+</section>
+
+<section class="card">
+  <% if (!list.length) { %>
+    <div class="empty">No meters found.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Meter ID</th>
+          <th>Meter Number</th>
+          <th>User ID</th>
+          <th>Utility</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% list.forEach((m) => { %>
+          <tr>
+            <td><%= m.meter_id || "-" %></td>
+            <td><%= m.meter_number || m.meter_reading || "-" %></td>
+            <td><%= m.user_id || "-" %></td>
+            <td><%= m.utility_name || m.utility_id || "-" %></td>
+            <td><%= m.created_at || "-" %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include("partials/layout-bottom") %>

@@ -1,0 +1,60 @@
+<%- include("partials/layout-top", { title: "Create Bill" }) %>
+
+<% const meterList = Array.isArray(meters) ? meters : []; %>
+
+<section class="card page-head">
+  <h2>Create Bill</h2>
+  <p>Create a bill for a specific meter.</p>
+</section>
+
+<section class="card">
+  <% if (!meterList.length) { %>
+    <div class="empty">
+      No meters available. Create a meter first.
+    </div>
+  <% } else { %>
+    <form class="form-grid" method="post" action="<%= rolePath('/create-bill') %>">
+      <div class="field">
+        <label for="meter_id">Meter</label>
+        <select id="meter_id" name="meter_id" required>
+          <% meterList.forEach((m) => { %>
+            <option value="<%= m.meter_id %>">
+              Meter <%= m.meter_id %> - <%= m.meter_number || m.meter_reading || "N/A" %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="bill_month">Bill Month</label>
+        <input id="bill_month" name="bill_month" type="date" required>
+      </div>
+
+      <div class="field">
+        <label for="amount">Amount (THB)</label>
+        <input id="amount" name="amount" type="number" step="0.01" min="0" required placeholder="0.00">
+      </div>
+
+      <div class="field">
+        <label for="due_date">Due Date</label>
+        <input id="due_date" name="due_date" type="date" required>
+      </div>
+
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status" required>
+          <option value="unpaid">Unpaid</option>
+          <option value="paid">Paid</option>
+          <option value="overdue">Overdue</option>
+        </select>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">Create Bill</button>
+        <a class="btn secondary" href="<%= rolePath('/bills') %>">Back</a>
+      </div>
+    </form>
+  <% } %>
+</section>
+
+<%- include("partials/layout-bottom") %>

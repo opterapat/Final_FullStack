@@ -1,0 +1,117 @@
+<%- include("partials/layout-top", { title: "My Dashboard" }) %>
+
+<%
+  const data = summary || {};
+  const bills = Array.isArray(recentBills) ? recentBills : [];
+  const payments = Array.isArray(recentPayments) ? recentPayments : [];
+%>
+
+<section class="card page-head">
+  <h2>User Dashboard</h2>
+  <p>Overview of your meters, bills, and recent payments.</p>
+  <div class="actions">
+    <a class="btn" href="<%= rolePath('/bills') %>">View All Bills</a>
+    <a class="btn secondary" href="<%= rolePath('/payments') %>">View All Payments</a>
+  </div>
+</section>
+
+<% if (error) { %>
+  <section class="card">
+    <p class="muted"><%= error %></p>
+  </section>
+<% } %>
+
+<section class="split">
+  <article class="card">
+    <h3>Meters</h3>
+    <p><strong><%= data.metersCount || 0 %></strong></p>
+  </article>
+  <article class="card">
+    <h3>Total Bills</h3>
+    <p><strong><%= data.billsCount || 0 %></strong></p>
+  </article>
+  <article class="card">
+    <h3>Paid Bills</h3>
+    <p><strong><%= data.paidBillsCount || 0 %></strong></p>
+  </article>
+  <article class="card">
+    <h3>Unpaid / Overdue</h3>
+    <p><strong><%= data.unpaidBillsCount || 0 %></strong></p>
+    <p class="muted">Overdue: <%= data.overdueBillsCount || 0 %></p>
+  </article>
+  <article class="card">
+    <h3>Total Due</h3>
+    <p><strong><%= formatTHB(data.totalDue || 0) %></strong></p>
+  </article>
+</section>
+
+<section class="card">
+  <h3>Recent Bills</h3>
+  <% if (!bills.length) { %>
+    <div class="empty">No bills found.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Bill ID</th>
+          <th>Meter ID</th>
+          <th>Amount (THB)</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% bills.forEach((bill) => { %>
+          <% const paid = String(bill.status || "").toLowerCase() === "paid"; %>
+          <tr>
+            <td><%= bill.bill_id || "-" %></td>
+            <td><%= bill.meter_id || "-" %></td>
+            <td><%= formatTHB(bill.amount) %></td>
+            <td><%= bill.due_date || "-" %></td>
+            <td><%= bill.status || "-" %></td>
+            <td>
+              <% if (paid) { %>
+                <span class="muted">Paid</span>
+              <% } else { %>
+                <a class="btn" href="<%= rolePath('/pay-bill/' + bill.bill_id) %>">Pay Bill</a>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<section class="card">
+  <h3>Recent Payments</h3>
+  <% if (!payments.length) { %>
+    <div class="empty">No payments found.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Payment ID</th>
+          <th>Bill ID</th>
+          <th>Method</th>
+          <th>Date</th>
+          <th>Reference</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% payments.forEach((p) => { %>
+          <tr>
+            <td><%= p.payment_id || "-" %></td>
+            <td><%= p.bill_id || "-" %></td>
+            <td><%= p.payment_method || "-" %></td>
+            <td><%= p.payment_date || "-" %></td>
+            <td><%= p.transaction_ref || "-" %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include("partials/layout-bottom") %>

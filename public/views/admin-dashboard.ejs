@@ -1,0 +1,139 @@
+<%- include("partials/layout-top", { title: "Admin Dashboard" }) %>
+
+<%
+  const data = summary || {};
+  const users = Array.isArray(recentUsers) ? recentUsers : [];
+  const payments = Array.isArray(recentPayments) ? recentPayments : [];
+  const urgent = Array.isArray(urgentBills) ? urgentBills : [];
+%>
+
+<section class="card page-head">
+  <h2>Admin Dashboard</h2>
+  <p>Control center for users, billing, meters, and payments.</p>
+  <div class="actions">
+    <a class="btn" href="<%= rolePath('/users') %>">Manage Users</a>
+    <a class="btn secondary" href="<%= rolePath('/meters') %>">Manage Meters</a>
+    <a class="btn secondary" href="<%= rolePath('/bills') %>">Manage Bills</a>
+    <a class="btn secondary" href="<%= rolePath('/utilities') %>">Manage Utilities</a>
+  </div>
+</section>
+
+<section class="split">
+  <article class="card">
+    <h3>Users</h3>
+    <p><strong><%= data.usersCount || 0 %></strong></p>
+  </article>
+  <article class="card">
+    <h3>Meters</h3>
+    <p><strong><%= data.metersCount || 0 %></strong></p>
+  </article>
+  <article class="card">
+    <h3>Utilities</h3>
+    <p><strong><%= data.utilitiesCount || 0 %></strong></p>
+  </article>
+  <article class="card">
+    <h3>Bills</h3>
+    <p><strong><%= data.billsCount || 0 %></strong></p>
+    <p class="muted">Paid: <%= data.paidBillsCount || 0 %>, Unpaid: <%= data.unpaidBillsCount || 0 %>, Overdue: <%= data.overdueBillsCount || 0 %></p>
+  </article>
+  <article class="card">
+    <h3>Payments</h3>
+    <p><strong><%= data.paymentsCount || 0 %></strong></p>
+  </article>
+  <article class="card">
+    <h3>Total Billed</h3>
+    <p><strong><%= formatTHB(data.totalBilledAmount || 0) %></strong></p>
+  </article>
+</section>
+
+<section class="card">
+  <h3>Urgent Bills (Unpaid / Overdue)</h3>
+  <% if (!urgent.length) { %>
+    <div class="empty">No urgent bills right now.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Bill ID</th>
+          <th>Meter ID</th>
+          <th>Amount (THB)</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% urgent.forEach((bill) => { %>
+          <tr>
+            <td><%= bill.bill_id || "-" %></td>
+            <td><%= bill.meter_id || "-" %></td>
+            <td><%= formatTHB(bill.amount) %></td>
+            <td><%= bill.due_date || "-" %></td>
+            <td><%= bill.status || "-" %></td>
+            <td><a class="btn secondary" href="<%= rolePath('/pay-bill/' + bill.bill_id) %>">Open</a></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<section class="split">
+  <article class="card">
+    <h3>Recent Users</h3>
+    <% if (!users.length) { %>
+      <div class="empty">No users found.</div>
+    <% } else { %>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% users.forEach((u) => { %>
+            <tr>
+              <td><%= u.user_id || "-" %></td>
+              <td><%= u.name || "-" %></td>
+              <td><%= u.email || "-" %></td>
+              <td><%= u.role || "user" %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </article>
+
+  <article class="card">
+    <h3>Recent Payments</h3>
+    <% if (!payments.length) { %>
+      <div class="empty">No payments found.</div>
+    <% } else { %>
+      <table>
+        <thead>
+          <tr>
+            <th>Payment ID</th>
+            <th>Bill ID</th>
+            <th>Method</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% payments.forEach((p) => { %>
+            <tr>
+              <td><%= p.payment_id || "-" %></td>
+              <td><%= p.bill_id || "-" %></td>
+              <td><%= p.payment_method || "-" %></td>
+              <td><%= p.payment_date || "-" %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </article>
+</section>
+
+<%- include("partials/layout-bottom") %>

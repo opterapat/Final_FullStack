@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title ? `${title} | FlowBills` : "FlowBills" %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <section class="top-row">
+      <div class="brand-wrap">
+        <img class="brand-logo" src="/images/liverpool-logo.svg" alt="Liverpool FC logo">
+        <h1>FlowBills</h1>
+      </div>
+      <div class="role-panel">
+        <% if (isAuthenticated && currentUser) { %>
+          <span class="role-badge"><%= roleLabel || "User" %>: <%= currentUser.name %></span>
+          <a class="role-link" href="/logout">Logout</a>
+        <% } else { %>
+          <span class="role-badge">Guest</span>
+          <a class="role-link" href="/login">Login</a>
+          <a class="role-link" href="/register">Register</a>
+        <% } %>
+      </div>
+    </section>
+    <% if (isAuthenticated) { %>
+      <nav class="nav">
+        <a href="<%= rolePath('/') %>">Home</a>
+        <% if (!isAdmin) { %>
+          <a href="<%= rolePath('/user-dashboard') %>">My Dashboard</a>
+        <% } %>
+        <% if (isAdmin) { %>
+          <a href="<%= rolePath('/admin-dashboard') %>">Admin Dashboard</a>
+        <% } %>
+        <a href="<%= rolePath('/bills') %>">Bills</a>
+        <a href="<%= rolePath('/payments') %>">Payments</a>
+        <% if (isAdmin) { %>
+          <a href="<%= rolePath('/users') %>">Users</a>
+          <a href="<%= rolePath('/meters') %>">Meters</a>
+          <a href="<%= rolePath('/utilities') %>">Utilities</a>
+          <a href="<%= rolePath('/create') %>">Create User</a>
+          <a href="<%= rolePath('/create-meter') %>">Create Meter</a>
+          <a href="<%= rolePath('/create-bill') %>">Create Bill</a>
+          <a href="<%= rolePath('/create-utility') %>">Create Utility</a>
+        <% } %>
+      </nav>
+    <% } %>
+  </header>
+  <main class="page">

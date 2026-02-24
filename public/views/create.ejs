@@ -1,0 +1,45 @@
+<%- include("partials/layout-top", { title: "Create User" }) %>
+
+<section class="card page-head">
+  <h2>Create User</h2>
+  <p>Add a new user account.</p>
+</section>
+
+<section class="card">
+  <form class="form-grid" method="post" action="<%= rolePath('/create') %>">
+    <div class="field">
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" maxlength="120" required>
+    </div>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" maxlength="120" required>
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" maxlength="120" required>
+    </div>
+
+    <div class="field">
+      <label for="phone">Phone</label>
+      <input id="phone" name="phone" type="text" maxlength="40">
+    </div>
+
+    <div class="field">
+      <label for="role">Role</label>
+      <select id="role" name="role" required>
+        <option value="user">General User</option>
+        <option value="admin">Administrator</option>
+      </select>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="submit">Create User</button>
+      <a class="btn secondary" href="<%= rolePath('/users') %>">Cancel</a>
+    </div>
+  </form>
+</section>
+
+<%- include("partials/layout-bottom") %>

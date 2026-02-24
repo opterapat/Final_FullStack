@@ -1,0 +1,52 @@
+<%- include("partials/layout-top", { title: "Users" }) %>
+
+<% const list = Array.isArray(users) ? users : []; %>
+<section class="card page-head">
+  <h2>Users</h2>
+  <p>Total users: <strong><%= list.length %></strong></p>
+  <div class="actions">
+    <a class="btn" href="<%= rolePath('/create') %>">Create User</a>
+  </div>
+</section>
+
+<section class="card">
+  <% if (!list.length) { %>
+    <div class="empty">No users found.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Role</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% list.forEach((u) => { %>
+          <% const uid = u.user_id || u.id; %>
+          <tr>
+            <td><%= uid %></td>
+            <td><%= u.name || "-" %></td>
+            <td><%= u.email || "-" %></td>
+            <td><%= u.phone || "-" %></td>
+            <td><%= u.role || "user" %></td>
+            <td><%= u.created_at || "-" %></td>
+            <td>
+              <div class="actions">
+                <a class="btn secondary" href="<%= rolePath('/user/' + uid) %>">View</a>
+                <a class="btn secondary" href="<%= rolePath('/update/' + uid) %>">Edit</a>
+                <a class="btn danger" href="<%= rolePath('/delete/' + uid) %>" onclick="return confirm('Delete this user?')">Delete</a>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include("partials/layout-bottom") %>

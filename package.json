@@ -1,9 +1,13 @@
 {
-  "name": "final_project",
+  "name": "flowbills",
   "version": "1.0.0",
   "description": "",
   "main": "SQliteDB.js",
   "scripts": {
+    "start": "npm run backend",
+    "backend": "node SQliteDB.js",
+    "frontend": "node AxiousHtml.js",
+    "dev": "concurrently -k -n BACKEND,FRONTEND -c green,blue \"npm run backend\" \"npm run frontend\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -17,5 +21,8 @@
     "ejs": "^4.0.1",
     "express": "^5.2.1",
     "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

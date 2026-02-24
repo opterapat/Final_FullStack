@@ -1,0 +1,59 @@
+<%- include("partials/layout-top", { title: "Bills" }) %>
+
+<% const list = Array.isArray(bills) ? bills : []; %>
+<section class="card page-head">
+  <h2>Bills</h2>
+  <p>Total bills: <strong><%= list.length %></strong></p>
+  <% if (message) { %>
+    <p class="muted"><%= message %></p>
+  <% } %>
+  <% if (isAdmin) { %>
+    <div class="actions">
+      <a class="btn" href="<%= rolePath('/create-bill') %>">Create Bill</a>
+    </div>
+  <% } %>
+</section>
+
+<section class="card">
+  <% if (!list.length) { %>
+    <div class="empty">No bills found.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Bill ID</th>
+          <th>Meter ID</th>
+          <th>Bill Month</th>
+          <th>Amount (THB)</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% list.forEach((b) => { %>
+          <% const isPaid = String(b.status || "").toLowerCase() === "paid"; %>
+          <tr>
+            <td><%= b.bill_id || "-" %></td>
+            <td><%= b.meter_id || "-" %></td>
+            <td><%= b.bill_month || "-" %></td>
+            <td><%= formatTHB(b.amount) %></td>
+            <td><%= b.due_date || "-" %></td>
+            <td><%= b.status || "-" %></td>
+            <td><%= b.created_at || "-" %></td>
+            <td>
+              <% if (isPaid) { %>
+                <span class="muted">Paid</span>
+              <% } else { %>
+                <a class="btn" href="<%= rolePath('/pay-bill/' + b.bill_id) %>">Pay Bill</a>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include("partials/layout-bottom") %>

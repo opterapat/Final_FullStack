@@ -1,0 +1,57 @@
+<%- include("partials/layout-top", { title: "Create Meter" }) %>
+
+<%
+  const userList = Array.isArray(users) ? users : [];
+  const utilityList = Array.isArray(utilities) ? utilities : [];
+  const fieldValues = values || {};
+%>
+
+<section class="card page-head">
+  <h2>Create Meter</h2>
+  <p>Assign a utility meter to a user.</p>
+</section>
+
+<section class="card">
+  <% if (error) { %>
+    <div class="empty"><%= error %></div>
+  <% } %>
+
+  <% if (!userList.length || !utilityList.length) { %>
+    <div class="empty">
+      You need at least one user and one utility before creating a meter.
+    </div>
+  <% } else { %>
+    <form class="form-grid" method="post" action="<%= rolePath('/create-meter') %>">
+      <div class="field">
+        <label for="meter_number">Meter Number</label>
+        <input id="meter_number" name="meter_number" type="text" maxlength="120" required value="<%= fieldValues.meter_number || '' %>">
+      </div>
+
+      <div class="field">
+        <label for="user_id">User</label>
+        <select id="user_id" name="user_id" required>
+          <% userList.forEach((u) => { %>
+            <% const uid = u.user_id || u.id; %>
+            <option value="<%= uid %>" <%= String(fieldValues.user_id || '') === String(uid) ? 'selected' : '' %>><%= uid %> - <%= u.name || "Unnamed" %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="utility_id">Utility</label>
+        <select id="utility_id" name="utility_id" required>
+          <% utilityList.forEach((u) => { %>
+            <option value="<%= u.utility_id %>" <%= String(fieldValues.utility_id || '') === String(u.utility_id) ? 'selected' : '' %>><%= u.utility_name || ("Utility " + u.utility_id) %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">Create Meter</button>
+        <a class="btn secondary" href="<%= rolePath('/meters') %>">Back</a>
+      </div>
+    </form>
+  <% } %>
+</section>
+
+<%- include("partials/layout-bottom") %>

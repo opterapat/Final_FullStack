@@ -1,0 +1,45 @@
+<%- include("partials/layout-top", { title: "Update User" }) %>
+
+<%
+  const profile = user || {};
+  const uid = profile.user_id || profile.id;
+%>
+
+<section class="card page-head">
+  <h2>Update User</h2>
+  <p>Editing user ID: <strong><%= uid || "-" %></strong></p>
+</section>
+
+<section class="card">
+  <form class="form-grid" method="post" action="<%= rolePath('/update/' + uid) %>">
+    <div class="field">
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" value="<%= profile.name || '' %>" maxlength="120" required>
+    </div>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" value="<%= profile.email || '' %>" maxlength="120" required>
+    </div>
+
+    <div class="field">
+      <label for="phone">Phone</label>
+      <input id="phone" name="phone" type="text" value="<%= profile.phone || '' %>" maxlength="40">
+    </div>
+
+    <div class="field">
+      <label for="role">Role</label>
+      <select id="role" name="role" required>
+        <option value="user" <%= String(profile.role || '').toLowerCase() === 'user' ? 'selected' : '' %>>General User</option>
+        <option value="admin" <%= String(profile.role || '').toLowerCase() === 'admin' ? 'selected' : '' %>>Administrator</option>
+      </select>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="submit">Update User</button>
+      <a class="btn secondary" href="<%= rolePath('/users') %>">Back</a>
+    </div>
+  </form>
+</section>
+
+<%- include("partials/layout-bottom") %>

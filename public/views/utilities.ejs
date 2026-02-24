@@ -1,0 +1,35 @@
+<%- include("partials/layout-top", { title: "Utilities" }) %>
+
+<% const list = Array.isArray(utilities) ? utilities : []; %>
+<section class="card page-head">
+  <h2>Utilities</h2>
+  <p>Total utilities: <strong><%= list.length %></strong></p>
+  <div class="actions">
+    <a class="btn" href="<%= rolePath('/create-utility') %>">Create Utility</a>
+  </div>
+</section>
+
+<section class="card">
+  <% if (!list.length) { %>
+    <div class="empty">No utilities found.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Utility ID</th>
+          <th>Utility Name</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% list.forEach((u) => { %>
+          <tr>
+            <td><%= u.utility_id || "-" %></td>
+            <td><%= u.utility_name || "-" %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include("partials/layout-bottom") %>
