@@ -15,11 +15,107 @@ const thbCurrencyFormatter = new Intl.NumberFormat("th-TH", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 });
+const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  year: "numeric"
+});
 
 function formatTHB(value, fallback = "-") {
   const numericValue = Number.parseFloat(value);
   if (!Number.isFinite(numericValue)) return fallback;
   return thbCurrencyFormatter.format(numericValue);
+}
+
+function toBillMonthKey(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) return "unknown";
+
+  const isoMatch = value.match(/^(\d{4})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}`;
+
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    const year = parsed.getUTCFullYear();
+    const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+  }
+
+  return "unknown";
+}
+
+function toBillMonthLabel(monthKey) {
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) return "Unknown";
+  const [year, month] = monthKey.split("-").map((part) => Number.parseInt(part, 10));
+  const utcDate = new Date(Date.UTC(year, month - 1, 1));
+  return monthLabelFormatter.format(utcDate);
+}
+
+function buildMonthlyExpenseReport(bills, payments) {
+  const safeBills = Array.isArray(bills) ? bills : [];
+  const safePayments = Array.isArray(payments) ? payments : [];
+  const paymentsByBillId = {};
+
+  safePayments.forEach((payment) => {
+    const billId = String(payment.bill_id || "").trim();
+    if (!billId) return;
+    paymentsByBillId[billId] = paymentsByBillId[billId] || [];
+    paymentsByBillId[billId].push(payment);
+  });
+
+  const monthlyReportMap = {};
+  safeBills.forEach((bill) => {
+    const monthKey = toBillMonthKey(bill.bill_month);
+    const status = String(bill.status || "").toLowerCase().trim();
+    const billId = String(bill.bill_id || bill.id || "").trim();
+    const amount = Number.parseFloat(bill.amount);
+    const normalizedAmount = Number.isFinite(amount) ? amount : 0;
+    const linkedPayments = billId ? (paymentsByBillId[billId] || []) : [];
+
+    if (!monthlyReportMap[monthKey]) {
+      monthlyReportMap[monthKey] = {
+        monthKey,
+        monthLabel: toBillMonthLabel(monthKey),
+        billsCount: 0,
+        paidBillsCount: 0,
+        unpaidBillsCount: 0,
+        overdueBillsCount: 0,
+        paymentsCount: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        outstandingAmount: 0
+      };
+    }
+
+    const monthSummary = monthlyReportMap[monthKey];
+    monthSummary.billsCount += 1;
+    monthSummary.paymentsCount += linkedPayments.length;
+    monthSummary.totalAmount += normalizedAmount;
+
+    if (status === "paid") {
+      monthSummary.paidBillsCount += 1;
+      monthSummary.paidAmount += normalizedAmount;
+      return;
+    }
+
+    if (status === "overdue") {
+      monthSummary.overdueBillsCount += 1;
+    } else {
+      monthSummary.unpaidBillsCount += 1;
+    }
+    monthSummary.outstandingAmount += normalizedAmount;
+  });
+
+  return Object.values(monthlyReportMap).sort((left, right) => {
+    const leftIsDated = /^\d{4}-\d{2}$/.test(left.monthKey);
+    const rightIsDated = /^\d{4}-\d{2}$/.test(right.monthKey);
+
+    if (leftIsDated && rightIsDated) {
+      return right.monthKey.localeCompare(left.monthKey);
+    }
+    if (leftIsDated) return -1;
+    if (rightIsDated) return 1;
+    return left.monthKey.localeCompare(right.monthKey);
+  });
 }
 
 function normalizeRole(role) {
@@ -513,6 +609,7 @@ app.get('/user-dashboard', requireAuth, async (req, res) => {
       const right = new Date(b.payment_date || 0).getTime();
       return right - left;
     }).slice(0, 8);
+    const monthlyReport = buildMonthlyExpenseReport(bills, payments);
 
     res.render('user-dashboard', {
       summary: {
@@ -525,6 +622,7 @@ app.get('/user-dashboard', requireAuth, async (req, res) => {
       },
       recentBills,
       recentPayments,
+      monthlyReport,
       error: null
     });
   } catch (err) {
@@ -548,6 +646,7 @@ app.get('/user-dashboard', requireAuth, async (req, res) => {
       },
       recentBills: [],
       recentPayments: [],
+      monthlyReport: [],
       error: message
     });
   }
@@ -602,8 +701,29 @@ app.get('/user/:id', requireAdmin, async (req, res) => {
     // Fetch payments
     const paymentsResp = await axios.get(`${base_url}/payments`);
     const allPayments = paymentsResp.data || [];
+    const userBills = [];
+    userMeters.forEach((meter) => {
+      const meterBills = Array.isArray(meter.bills) ? meter.bills : [];
+      meterBills.forEach((bill) => {
+        userBills.push(bill);
+      });
+    });
+    const userBillIdSet = new Set(
+      userBills
+        .map((bill) => String(bill.bill_id || bill.id || "").trim())
+        .filter((billId) => !!billId)
+    );
+    const userPayments = allPayments.filter((payment) =>
+      userBillIdSet.has(String(payment.bill_id || "").trim())
+    );
+    const monthlyReport = buildMonthlyExpenseReport(userBills, userPayments);
 
-    res.render('user', { user, meters: userMeters, payments: allPayments });
+    res.render('user', {
+      user,
+      meters: userMeters,
+      payments: userPayments,
+      monthlyReport
+    });
   } catch (err) {
     console.error(err && err.message ? err.message : err);
     res.status(500).send('Error loading user');

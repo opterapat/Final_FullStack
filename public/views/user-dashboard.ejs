@@ -4,6 +4,7 @@
   const data = summary || {};
   const bills = Array.isArray(recentBills) ? recentBills : [];
   const payments = Array.isArray(recentPayments) ? recentPayments : [];
+  const monthReports = Array.isArray(monthlyReport) ? monthlyReport : [];
 %>
 
 <section class="card page-head">
@@ -12,6 +13,7 @@
   <div class="actions">
     <a class="btn" href="<%= rolePath('/bills') %>">View All Bills</a>
     <a class="btn secondary" href="<%= rolePath('/payments') %>">View All Payments</a>
+    <a class="btn secondary" href="#monthly-expense-report">Monthly Expense Report</a>
   </div>
 </section>
 
@@ -43,6 +45,44 @@
     <h3>Total Due</h3>
     <p><strong><%= formatTHB(data.totalDue || 0) %></strong></p>
   </article>
+</section>
+
+<section class="card">
+  <h3 id="monthly-expense-report">Monthly Expense Report</h3>
+  <% if (!monthReports.length) { %>
+    <div class="empty">No monthly expense data available.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Bill Month</th>
+          <th>Total Bills</th>
+          <th>Paid</th>
+          <th>Unpaid</th>
+          <th>Overdue</th>
+          <th>Payments</th>
+          <th>Total Amount (THB)</th>
+          <th>Paid Amount (THB)</th>
+          <th>Outstanding (THB)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% monthReports.forEach((report) => { %>
+          <tr>
+            <td><%= report.monthLabel || report.monthKey || "-" %></td>
+            <td><%= report.billsCount || 0 %></td>
+            <td><%= report.paidBillsCount || 0 %></td>
+            <td><%= report.unpaidBillsCount || 0 %></td>
+            <td><%= report.overdueBillsCount || 0 %></td>
+            <td><%= report.paymentsCount || 0 %></td>
+            <td><%= formatTHB(report.totalAmount) %></td>
+            <td><%= formatTHB(report.paidAmount) %></td>
+            <td><%= formatTHB(report.outstandingAmount) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
 </section>
 
 <section class="card">
