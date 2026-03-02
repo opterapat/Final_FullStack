@@ -21,12 +21,14 @@ const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
 });
 const allowedNoticeTypes = new Set(["info", "success", "warning", "error"]);
 
+// [FORMAT] Convert numeric values into THB currency format.
 function formatTHB(value, fallback = "-") {
   const numericValue = Number.parseFloat(value);
   if (!Number.isFinite(numericValue)) return fallback;
   return thbCurrencyFormatter.format(numericValue);
 }
 
+// [FORMAT] Normalize different month inputs into YYYY-MM keys.
 function toBillMonthKey(rawValue) {
   const value = String(rawValue || "").trim();
   if (!value) return "unknown";
@@ -44,6 +46,7 @@ function toBillMonthKey(rawValue) {
   return "unknown";
 }
 
+// [FORMAT] Convert normalized month keys into readable labels.
 function toBillMonthLabel(monthKey) {
   if (!/^\d{4}-\d{2}$/.test(monthKey)) return "Unknown";
   const [year, month] = monthKey.split("-").map((part) => Number.parseInt(part, 10));
@@ -51,6 +54,7 @@ function toBillMonthLabel(monthKey) {
   return monthLabelFormatter.format(utcDate);
 }
 
+// [REPORT] Aggregate bills/payments into per-month report rows.
 function buildMonthlyExpenseReport(bills, payments) {
   const safeBills = Array.isArray(bills) ? bills : [];
   const safePayments = Array.isArray(payments) ? payments : [];
@@ -167,10 +171,12 @@ function buildMonthlyExpenseReport(bills, payments) {
   });
 }
 
+// [AUTH] Restrict incoming roles to admin/user.
 function normalizeRole(role) {
   return role === "admin" ? "admin" : "user";
 }
 
+// [SESSION] Parse cookie header into an object map.
 function parseCookies(cookieHeader) {
   const cookies = {};
   if (!cookieHeader) return cookies;
@@ -189,17 +195,20 @@ function parseCookies(cookieHeader) {
   return cookies;
 }
 
+// [AUTH] Prevent unsafe external redirects.
 function safeRedirectPath(rawPath) {
   const path = String(rawPath || "").trim();
   if (!path.startsWith("/") || path.startsWith("//")) return "/";
   return path;
 }
 
+// [NOTICE] Normalize notice type to supported values.
 function normalizeNoticeType(rawType, fallback = "warning") {
   const type = String(rawType || "").trim().toLowerCase();
   return allowedNoticeTypes.has(type) ? type : fallback;
 }
 
+// [NOTICE] Trim and clamp notice text length.
 function sanitizeNoticeText(rawText) {
   const text = String(rawText || "").trim();
   if (!text) return null;
@@ -207,6 +216,7 @@ function sanitizeNoticeText(rawText) {
   return `${text.slice(0, 217)}...`;
 }
 
+// [NOTICE] Append notice message/type query params to a path.
 function withNotice(rawPath, message, type = "warning") {
   const path = safeRedirectPath(rawPath);
   const text = sanitizeNoticeText(message);
@@ -217,6 +227,7 @@ function withNotice(rawPath, message, type = "warning") {
   return `${path}${separator}notice=${encodeURIComponent(text)}&noticeType=${encodeURIComponent(noticeType)}`;
 }
 
+// [USER] Build a fallback username from user data.
 function deriveUsername(user) {
   const explicitUsername = String(user && user.username ? user.username : "").trim();
   if (explicitUsername) return explicitUsername;
@@ -239,6 +250,7 @@ function deriveUsername(user) {
   return "unknown";
 }
 
+// [SESSION] Set auth cookies after successful login.
 function setAuthCookies(res, user) {
   const maxAge = 60 * 60 * 24 * 30;
   const role = normalizeRole(user.role);
@@ -254,6 +266,7 @@ function setAuthCookies(res, user) {
   ]);
 }
 
+// [SESSION] Clear all auth cookies on logout.
 function clearAuthCookies(res) {
   res.setHeader("Set-Cookie", [
     "auth_uid=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
@@ -263,6 +276,7 @@ function clearAuthCookies(res) {
   ]);
 }
 
+// [AUTH] Middleware: allow admin users only.
 function requireAdmin(req, res, next) {
   if (!req.currentUser) {
     const nextPath = encodeURIComponent(req.originalUrl || "/");
@@ -287,6 +301,7 @@ function requireAdmin(req, res, next) {
   return res.status(403).render("access-denied", { message });
 }
 
+// [AUTH] Middleware: require authenticated user.
 function requireAuth(req, res, next) {
   if (req.currentUser) return next();
 
@@ -355,6 +370,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ================= ROUTES =================
 
+// [AUTH] Render login page.
 app.get('/login', (req, res) => {
   if (req.currentUser) return res.redirect('/');
   res.render('login', {
@@ -363,6 +379,7 @@ app.get('/login', (req, res) => {
   });
 });
 
+// [AUTH] Authenticate and start user session.
 app.post('/login', async (req, res) => {
   if (req.currentUser) return res.redirect('/');
 
@@ -395,6 +412,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// [USER] Render registration page.
 app.get('/register', (req, res) => {
   if (req.currentUser) return res.redirect('/');
 
@@ -408,6 +426,7 @@ app.get('/register', (req, res) => {
   });
 });
 
+// [USER] Register a new user and log in immediately.
 app.post('/register', async (req, res) => {
   if (req.currentUser) return res.redirect('/');
 
@@ -451,12 +470,13 @@ app.post('/register', async (req, res) => {
   }
 });
 
+// [AUTH] Log out and clear auth cookies.
 app.get('/logout', (req, res) => {
   clearAuthCookies(res);
   res.redirect('/login');
 });
 
-// Home (landing) page
+// [DASHBOARD] Render role-based landing dashboard.
 app.get('/', async (req, res) => {
   if (!req.currentUser) {
     return res.redirect('/register');
@@ -604,7 +624,7 @@ app.get('/', async (req, res) => {
   }
 });
 
-// Admin dashboard page
+// [DASHBOARD] Render full admin operational metrics.
 app.get('/admin-dashboard', requireAdmin, async (req, res) => {
   try {
     const [usersResp, metersResp, billsResp, paymentsResp, utilitiesResp] = await Promise.all([
@@ -673,7 +693,7 @@ app.get('/admin-dashboard', requireAdmin, async (req, res) => {
   }
 });
 
-// User dashboard page
+// [DASHBOARD] Render user dashboard and monthly report.
 app.get('/user-dashboard', requireAuth, async (req, res) => {
   try {
     const [metersResp, billsResp, paymentsResp] = await Promise.all([
@@ -761,7 +781,7 @@ app.get('/user-dashboard', requireAuth, async (req, res) => {
   }
 });
 
-// Show all users (separate route)
+// [USER] List all users for admin management.
 app.get('/users', requireAdmin, async (req, res) => {
   try {
     const response = await axios.get(base_url + '/users');
@@ -772,7 +792,7 @@ app.get('/users', requireAdmin, async (req, res) => {
   }
 });
 
-// Show one user
+// [USER][REPORT] Show one user with bills, payments, and monthly report.
 app.get('/user/:id', requireAdmin, async (req, res) => {
   try {
     const printMode = String(req.query.print || "").trim() === "1";
@@ -847,6 +867,7 @@ app.get('/user/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// [BILL][PAYMENT] Print open invoices for one user.
 app.get('/user/:id/invoices', requireAdmin, async (req, res) => {
   const printMode = String(req.query.print || "").trim() === "1";
 
@@ -923,7 +944,7 @@ app.get('/user/:id/invoices', requireAdmin, async (req, res) => {
   }
 });
 
-// List meters
+// [METER] List all meters with utility labels.
 app.get('/meters', requireAdmin, async (req, res) => {
   try {
     const resp = await axios.get(`${base_url}/meters`);
@@ -940,7 +961,7 @@ app.get('/meters', requireAdmin, async (req, res) => {
   }
 });
 
-// List bills
+// [BILL] List bills (filtered by ownership for non-admins).
 app.get('/bills', requireAuth, async (req, res) => {
   try {
     const resp = await axios.get(`${base_url}/bills`);
@@ -966,6 +987,7 @@ app.get('/bills', requireAuth, async (req, res) => {
   }
 });
 
+// [BILL][REPORT] Render single invoice (with print mode).
 app.get('/invoice/:billId', requireAuth, async (req, res) => {
   const printMode = String(req.query.print || "").trim() === "1";
 
@@ -1042,7 +1064,7 @@ app.get('/invoice/:billId', requireAuth, async (req, res) => {
   }
 });
 
-// List utilities
+// [UTILITY] List utility types.
 app.get('/utilities', requireAdmin, async (req, res) => {
   try {
     const resp = await axios.get(`${base_url}/utilities`);
@@ -1053,12 +1075,12 @@ app.get('/utilities', requireAdmin, async (req, res) => {
   }
 });
 
-// Create utility page
+// [UTILITY] Render create-utility form.
 app.get("/create-utility", requireAdmin, (req, res) => {
   res.render("create-utility");
 });
 
-// Create utility
+// [UTILITY] Create a utility record.
 app.post("/create-utility", requireAdmin, async (req, res) => {
   try {
     const data = {
@@ -1072,7 +1094,7 @@ app.post("/create-utility", requireAdmin, async (req, res) => {
   }
 });
 
-// List payments
+// [PAYMENT] List payments (filtered for non-admin users).
 app.get('/payments', requireAuth, async (req, res) => {
   try {
     const resp = await axios.get(`${base_url}/payments`);
@@ -1109,7 +1131,7 @@ app.get('/payments', requireAuth, async (req, res) => {
   }
 });
 
-// Pay bill page
+// [PAYMENT] Render pay-bill page with ownership validation.
 app.get('/pay-bill/:billId', requireAuth, async (req, res) => {
   try {
     const billResp = await axios.get(`${base_url}/bills/${req.params.billId}`);
@@ -1150,7 +1172,7 @@ app.get('/pay-bill/:billId', requireAuth, async (req, res) => {
   }
 });
 
-// Pay bill submit
+// [PAYMENT] Submit payment and update bill status.
 app.post('/pay-bill/:billId', requireAuth, async (req, res) => {
   try {
     if (req.currentUser.role !== "admin") {
@@ -1190,12 +1212,12 @@ app.post('/pay-bill/:billId', requireAuth, async (req, res) => {
   }
 });
 
-// Create page
+// [USER] Render create-user form.
 app.get("/create", requireAdmin, (req, res) => {
   res.render("create");
 });
 
-// Create user
+// [USER] Create a new user account.
 app.post("/create", requireAdmin, async (req, res) => {
   try {
     const data = {
@@ -1213,7 +1235,7 @@ app.post("/create", requireAdmin, async (req, res) => {
   }
 });
 
-// Update page
+// [USER] Render update-user form.
 app.get("/update/:id", requireAdmin, async (req, res) => {
   try {
     const response = await axios.get(base_url + '/users/' + req.params.id);
@@ -1224,7 +1246,7 @@ app.get("/update/:id", requireAdmin, async (req, res) => {
   }
 });
 
-// Update user
+// [USER] Update existing user fields and role.
 app.post("/update/:id", requireAdmin, async (req, res) => {
   try {
     const data = {
@@ -1241,7 +1263,7 @@ app.post("/update/:id", requireAdmin, async (req, res) => {
   }
 });
 
-// Delete user
+// [USER] Delete user by id.
 app.get("/delete/:id", requireAdmin, async (req, res) => {
   try {
     await axios.delete(base_url + '/users/' + req.params.id);
@@ -1252,7 +1274,7 @@ app.get("/delete/:id", requireAdmin, async (req, res) => {
   }
 });
 
-// Create meter page
+// [METER] Render create-meter form with user/utility options.
 app.get("/create-meter", requireAdmin, async (req, res) => {
   try {
     const usersResp = await axios.get(base_url + '/users');
@@ -1273,7 +1295,7 @@ app.get("/create-meter", requireAdmin, async (req, res) => {
   }
 });
 
-// Create meter
+// [METER] Validate and create a meter record.
 app.post("/create-meter", requireAdmin, async (req, res) => {
   const meterNumber = String(req.body.meter_number || req.body.meter_reading || "").trim();
   const userId = String(req.body.user_id || "").trim();
@@ -1310,7 +1332,7 @@ app.post("/create-meter", requireAdmin, async (req, res) => {
   }
 });
 
-// Create bill page
+// [BILL] Render create-bill form.
 app.get("/create-bill", requireAdmin, async (req, res) => {
   try {
     const metersResp = await axios.get(base_url + '/meters');
@@ -1321,7 +1343,7 @@ app.get("/create-bill", requireAdmin, async (req, res) => {
   }
 });
 
-// Create bill
+// [BILL] Create bill record for a meter.
 app.post("/create-bill", requireAdmin, async (req, res) => {
   try {
     const data = {
@@ -1342,3 +1364,4 @@ app.post("/create-bill", requireAdmin, async (req, res) => {
 app.listen(5500, () => {
   console.log(`Client running at http://localhost:5500`);
 });
+

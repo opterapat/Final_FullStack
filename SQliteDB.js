@@ -6,6 +6,7 @@ app.use(express.json());
 
 const ALLOWED_USER_ROLES = new Set(['admin', 'user']);
 
+// [AUTH] Normalize role input to supported values.
 function normalizeUserRole(role) {
   const input = String(role || '').toLowerCase().trim();
   return ALLOWED_USER_ROLES.has(input) ? input : 'user';
@@ -107,6 +108,7 @@ db.serialize(() => {
 // GENERIC CRUD FUNCTION
 // ==========================
 
+// [CRUD] Return all rows from a table.
 function getAll(table, res) {
   db.all(`SELECT * FROM ${table}`, [], (err, rows) => {
     if (err) return res.status(500).json(err);
@@ -114,6 +116,7 @@ function getAll(table, res) {
   });
 }
 
+// [CRUD] Return one row by id field.
 function getById(table, idField, id, res) {
   db.get(`SELECT * FROM ${table} WHERE ${idField} = ?`, [id], (err, row) => {
     if (err) return res.status(500).json(err);
@@ -122,6 +125,7 @@ function getById(table, idField, id, res) {
   });
 }
 
+// [CRUD] Delete one row by id field.
 function deleteById(table, idField, id, res) {
   db.run(`DELETE FROM ${table} WHERE ${idField} = ?`, [id], function (err) {
     if (err) return res.status(500).json(err);
@@ -132,6 +136,7 @@ function deleteById(table, idField, id, res) {
 // ==========================
 // USERS ROUTES
 // ==========================
+// [USER] Get all users (safe fields only).
 app.get('/users', (req, res) => {
   db.all(
     `SELECT user_id, name, email, phone, role, created_at
@@ -145,6 +150,7 @@ app.get('/users', (req, res) => {
   );
 });
 
+// [USER] Get one user by id (safe fields only).
 app.get('/users/:id', (req, res) => {
   db.get(
     `SELECT user_id, name, email, phone, role, created_at
@@ -158,6 +164,8 @@ app.get('/users/:id', (req, res) => {
     }
   );
 });
+
+// [AUTH] Validate credentials and return login payload.
 app.post('/auth/login', (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
@@ -188,6 +196,7 @@ app.post('/auth/login', (req, res) => {
   );
 });
 
+// [USER] Create a user with role normalization and duplicate checks.
 app.post('/users', (req, res) => {
   const name = String(req.body.name || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
@@ -215,6 +224,7 @@ app.post('/users', (req, res) => {
   );
 });
 
+// [USER] Update user profile and role.
 app.put('/users/:id', (req, res) => {
   const name = String(req.body.name || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
@@ -235,6 +245,7 @@ app.put('/users/:id', (req, res) => {
   );
 });
 
+// [USER] Delete user by id.
 app.delete('/users/:id', (req, res) =>
   deleteById('users', 'user_id', req.params.id, res)
 );
@@ -242,7 +253,10 @@ app.delete('/users/:id', (req, res) =>
 // ==========================
 // UTILITIES ROUTES
 // ==========================
+// [UTILITY] Get all utilities.
 app.get('/utilities', (req, res) => getAll('utilities', res));
+
+// [UTILITY] Create utility.
 app.post('/utilities', (req, res) => {
   db.run(
     `INSERT INTO utilities (utility_name) VALUES (?)`,
@@ -253,6 +267,8 @@ app.post('/utilities', (req, res) => {
     }
   );
 });
+
+// [UTILITY] Delete utility by id.
 app.delete('/utilities/:id', (req, res) =>
   deleteById('utilities', 'utility_id', req.params.id, res)
 );
@@ -260,7 +276,10 @@ app.delete('/utilities/:id', (req, res) =>
 // ==========================
 // METERS ROUTES
 // ==========================
+// [METER] Get all meters.
 app.get('/meters', (req, res) => getAll('meters', res));
+
+// [METER] Create meter with unique/FK validation.
 app.post('/meters', (req, res) => {
   const meterNumber = String(req.body.meter_number || "").trim();
   const userId = Number.parseInt(req.body.user_id, 10);
@@ -297,6 +316,8 @@ app.post('/meters', (req, res) => {
     }
   );
 });
+
+// [METER] Delete meter by id.
 app.delete('/meters/:id', (req, res) =>
   deleteById('meters', 'meter_id', req.params.id, res)
 );
@@ -304,8 +325,13 @@ app.delete('/meters/:id', (req, res) =>
 // ==========================
 // BILLS ROUTES
 // ==========================
+// [BILL] Get all bills.
 app.get('/bills', (req, res) => getAll('bills', res));
+
+// [BILL] Get bill by id.
 app.get('/bills/:id', (req, res) => getById('bills', 'bill_id', req.params.id, res));
+
+// [BILL] Create bill.
 app.post('/bills', (req, res) => {
   const { meter_id, bill_month, amount, due_date, status } = req.body;
   db.run(
@@ -318,6 +344,8 @@ app.post('/bills', (req, res) => {
     }
   );
 });
+
+// [BILL] Delete bill by id.
 app.delete('/bills/:id', (req, res) =>
   deleteById('bills', 'bill_id', req.params.id, res)
 );
@@ -325,7 +353,10 @@ app.delete('/bills/:id', (req, res) =>
 // ==========================
 // PAYMENTS ROUTES
 // ==========================
+// [PAYMENT] Get all payments.
 app.get('/payments', (req, res) => getAll('payments', res));
+
+// [PAYMENT] Create payment transaction and mark bill as paid.
 app.post('/payments', (req, res) => {
   const { bill_id, payment_method, transaction_ref } = req.body;
   const normalizedBillId = Number.parseInt(bill_id, 10);
@@ -395,6 +426,8 @@ app.post('/payments', (req, res) => {
     }
   );
 });
+
+// [PAYMENT] Delete payment by id.
 app.delete('/payments/:id', (req, res) =>
   deleteById('payments', 'payment_id', req.params.id, res)
 );
