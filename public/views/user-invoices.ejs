@@ -1,0 +1,70 @@
+<%- include("partials/layout-top", { title: "User Invoice Collection" }) %>
+
+<%
+  const profile = user || {};
+  const uid = profile.user_id || profile.id || "-";
+  const invoiceList = Array.isArray(bills) ? bills : [];
+  const isPrintMode = !!printMode;
+%>
+
+<section class="card page-head">
+  <h2>Invoice Collection Sheet</h2>
+  <p>User: <strong><%= profile.name || "-" %></strong> (ID: <strong><%= uid %></strong>)</p>
+  <p>Email: <strong><%= profile.email || "-" %></strong></p>
+  <p>Generated: <strong><%= generatedAt || "-" %></strong></p>
+  <p>Total Due: <strong><%= formatTHB(totalDue || 0) %></strong></p>
+  <div class="actions no-print">
+    <a class="btn secondary" href="<%= rolePath('/users') %>">Back to Users</a>
+    <a class="btn secondary" href="<%= rolePath('/user/' + uid) %>">Open User Detail</a>
+    <a class="btn" href="<%= rolePath('/user/' + uid + '/invoices?print=1') %>" target="_blank" rel="noopener">Print Invoices</a>
+  </div>
+</section>
+
+<section class="card">
+  <% if (!invoiceList.length) { %>
+    <div class="empty">No unpaid or overdue invoices found for this user.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Bill ID</th>
+          <th>Bill Month</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th>Meter ID</th>
+          <th>Meter Number</th>
+          <th>Utility</th>
+          <th>Amount (THB)</th>
+          <th class="no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% invoiceList.forEach((bill) => { %>
+          <tr>
+            <td><%= bill.bill_id || "-" %></td>
+            <td><%= bill.bill_month || "-" %></td>
+            <td><%= bill.due_date || "-" %></td>
+            <td><%= bill.status || "-" %></td>
+            <td><%= bill.meter_id || "-" %></td>
+            <td><%= bill.meter_number || "-" %></td>
+            <td><%= bill.utility_name || "-" %></td>
+            <td><%= formatTHB(bill.amount) %></td>
+            <td class="no-print">
+              <a class="btn secondary" href="<%= rolePath('/invoice/' + bill.bill_id + '?print=1') %>" target="_blank" rel="noopener">Print Single</a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<% if (isPrintMode) { %>
+  <script>
+    window.addEventListener("load", function () {
+      window.print();
+    });
+  </script>
+<% } %>
+
+<%- include("partials/layout-bottom") %>

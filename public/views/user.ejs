@@ -6,21 +6,115 @@
   const userMeters = Array.isArray(meters) ? meters : [];
   const allPayments = Array.isArray(payments) ? payments : [];
   const monthReports = Array.isArray(monthlyReport) ? monthlyReport : [];
+  const isPrintMode = !!printMode;
+  const reportGeneratedAt = generatedAt || "-";
+  const formatPercent = (value) => `${Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "0.0"}%`;
+  const formatDueWindow = (start, end) => {
+    if (!start && !end) return "-";
+    if (start && end && start !== end) return `${start} -> ${end}`;
+    return start || end;
+  };
+  const toNumber = (value) => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const parseDateValue = (value) => {
+    const text = String(value || "").trim();
+    if (!text) return null;
+    const ts = new Date(text).getTime();
+    if (!Number.isFinite(ts)) return null;
+    return { text, ts };
+  };
   const billIds = [];
+  const allUserBills = [];
   userMeters.forEach((m) => {
     const meterBills = Array.isArray(m.bills) ? m.bills : [];
     meterBills.forEach((b) => {
       const bid = String(b.bill_id || b.id || "");
       if (bid) billIds.push(bid);
+      allUserBills.push(b);
     });
   });
   const userPayments = allPayments.filter((p) => billIds.includes(String(p.bill_id || "")));
+  const utilityNames = [...new Set(
+    userMeters
+      .map((meter) => String(meter.utility_name || "").trim())
+      .filter((name) => !!name)
+  )];
+  const utilitySummary = utilityNames.length ? utilityNames.join(", ") : "-";
+  const dueDateWindow = allUserBills.reduce((window, bill) => {
+    const parsedDate = parseDateValue(bill.due_date);
+    if (!parsedDate) return window;
+    if (window.startTs === null || parsedDate.ts < window.startTs) {
+      window.startTs = parsedDate.ts;
+      window.start = parsedDate.text;
+    }
+    if (window.endTs === null || parsedDate.ts > window.endTs) {
+      window.endTs = parsedDate.ts;
+      window.end = parsedDate.text;
+    }
+    return window;
+  }, { start: null, end: null, startTs: null, endTs: null });
+  const overallBillRange = allUserBills.reduce((range, bill) => {
+    const amount = toNumber(bill.amount);
+    if (range.min === null || amount < range.min) range.min = amount;
+    if (range.max === null || amount > range.max) range.max = amount;
+    return range;
+  }, { min: null, max: null });
+  const latestPayment = userPayments.reduce((latest, payment) => {
+    const parsedDate = parseDateValue(payment.payment_date);
+    if (!parsedDate) return latest;
+    if (!latest || parsedDate.ts > latest.ts) {
+      return {
+        ts: parsedDate.ts,
+        text: parsedDate.text,
+        method: String(payment.payment_method || "").trim() || "-",
+        billId: String(payment.bill_id || "").trim() || "-"
+      };
+    }
+    return latest;
+  }, null);
+  const paymentMethods = [...new Set(
+    userPayments
+      .map((payment) => String(payment.payment_method || "").trim())
+      .filter((method) => !!method)
+  )];
+  const reportTotals = monthReports.reduce((totals, report) => {
+    totals.totalBills += toNumber(report.billsCount);
+    totals.paidBills += toNumber(report.paidBillsCount);
+    totals.unpaidBills += toNumber(report.unpaidBillsCount);
+    totals.overdueBills += toNumber(report.overdueBillsCount);
+    totals.payments += toNumber(report.paymentsCount);
+    totals.totalAmount += toNumber(report.totalAmount);
+    totals.paidAmount += toNumber(report.paidAmount);
+    totals.outstandingAmount += toNumber(report.outstandingAmount);
+    return totals;
+  }, {
+    totalBills: 0,
+    paidBills: 0,
+    unpaidBills: 0,
+    overdueBills: 0,
+    payments: 0,
+    totalAmount: 0,
+    paidAmount: 0,
+    outstandingAmount: 0
+  });
+  const overallPaidRate = reportTotals.totalBills ? ((reportTotals.paidBills / reportTotals.totalBills) * 100) : 0;
+  const overallCollectionRate = reportTotals.totalAmount ? ((reportTotals.paidAmount / reportTotals.totalAmount) * 100) : 0;
+  const averageMonthlyTotal = monthReports.length ? (reportTotals.totalAmount / monthReports.length) : 0;
+  const newestMonth = monthReports.length
+    ? (monthReports[0].monthLabel || monthReports[0].monthKey || "-")
+    : "-";
+  const oldestMonth = monthReports.length
+    ? (monthReports[monthReports.length - 1].monthLabel || monthReports[monthReports.length - 1].monthKey || "-")
+    : "-";
+  const reportPeriodLabel = monthReports.length > 1 ? `${oldestMonth} -> ${newestMonth}` : newestMonth;
 %>
 
-<section class="card page-head">
+<section class="card page-head no-print">
   <h2>User Detail</h2>
   <p>User ID: <strong><%= uid || "-" %></strong></p>
-  <div class="actions">
+  <div class="actions no-print">
     <% if (isAdmin) { %>
       <a class="btn secondary" href="<%= rolePath('/users') %>">Back to Users</a>
     <% } else { %>
@@ -28,11 +122,12 @@
     <% } %>
     <% if (uid && isAdmin) { %>
       <a class="btn" href="<%= rolePath('/update/' + uid) %>">Edit User</a>
+      <a class="btn" href="<%= rolePath('/user/' + uid + '/invoices?print=1') %>" target="_blank" rel="noopener">Print</a>
     <% } %>
   </div>
 </section>
 
-<section class="split">
+<section class="split no-print">
   <article class="card">
     <h3>Profile</h3>
     <p><strong>Name:</strong> <%= profile.name || "-" %></p>
@@ -73,45 +168,138 @@
   </article>
 </section>
 
-<section class="card">
+<section class="card monthly-report-section">
   <h3>Monthly Billing Report</h3>
+  <p><strong>User:</strong> <%= profile.name || "-" %> (ID: <%= uid || "-" %>)</p>
+  <p><strong>Generated:</strong> <%= reportGeneratedAt %></p>
+  <div class="report-meta-grid">
+    <div class="report-meta-item">
+      <span class="report-meta-label">Username</span>
+      <strong class="report-meta-value"><%= profile.username || "-" %></strong>
+    </div>
+    <div class="report-meta-item">
+      <span class="report-meta-label">Email</span>
+      <strong class="report-meta-value"><%= profile.email || "-" %></strong>
+    </div>
+    <div class="report-meta-item">
+      <span class="report-meta-label">Phone</span>
+      <strong class="report-meta-value"><%= profile.phone || "-" %></strong>
+    </div>
+    <div class="report-meta-item">
+      <span class="report-meta-label">Meters / Utilities</span>
+      <strong class="report-meta-value"><%= userMeters.length %> / <%= utilityNames.length %></strong>
+      <span class="report-meta-hint"><%= utilitySummary %></span>
+    </div>
+    <div class="report-meta-item">
+      <span class="report-meta-label">Report Months</span>
+      <strong class="report-meta-value"><%= monthReports.length %></strong>
+    </div>
+    <div class="report-meta-item">
+      <span class="report-meta-label">Billing Period</span>
+      <strong class="report-meta-value"><%= reportPeriodLabel %></strong>
+    </div>
+    <div class="report-meta-item">
+      <span class="report-meta-label">Due Date Window</span>
+      <strong class="report-meta-value"><%= formatDueWindow(dueDateWindow.start, dueDateWindow.end) %></strong>
+    </div>
+    <div class="report-meta-item">
+      <span class="report-meta-label">Latest Payment</span>
+      <strong class="report-meta-value"><%= latestPayment ? `${latestPayment.text} (${latestPayment.method})` : "-" %></strong>
+      <span class="report-meta-hint">Bill ID: <%= latestPayment ? latestPayment.billId : "-" %></span>
+    </div>
+  </div>
   <% if (!monthReports.length) { %>
     <div class="empty">No monthly billing data is available for this user.</div>
   <% } else { %>
-    <table>
-      <thead>
-        <tr>
-          <th>Bill Month</th>
-          <th>Total Bills</th>
-          <th>Paid</th>
-          <th>Unpaid</th>
-          <th>Overdue</th>
-          <th>Payments</th>
-          <th>Total Amount (THB)</th>
-          <th>Paid Amount (THB)</th>
-          <th>Outstanding (THB)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% monthReports.forEach((report) => { %>
+    <div class="report-kpi-grid">
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Total Bills</span>
+        <strong class="report-kpi-value"><%= reportTotals.totalBills %></strong>
+      </div>
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Paid / Open</span>
+        <strong class="report-kpi-value"><%= reportTotals.paidBills %> / <%= reportTotals.unpaidBills + reportTotals.overdueBills %></strong>
+      </div>
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Overdue Bills</span>
+        <strong class="report-kpi-value"><%= reportTotals.overdueBills %></strong>
+      </div>
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Payments Logged</span>
+        <strong class="report-kpi-value"><%= reportTotals.payments %></strong>
+      </div>
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Total Amount</span>
+        <strong class="report-kpi-value"><%= formatTHB(reportTotals.totalAmount) %></strong>
+      </div>
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Collected</span>
+        <strong class="report-kpi-value"><%= formatTHB(reportTotals.paidAmount) %></strong>
+      </div>
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Outstanding</span>
+        <strong class="report-kpi-value"><%= formatTHB(reportTotals.outstandingAmount) %></strong>
+      </div>
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Avg Monthly Charge</span>
+        <strong class="report-kpi-value"><%= formatTHB(averageMonthlyTotal) %></strong>
+      </div>
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Bill Amount Range</span>
+        <strong class="report-kpi-value">
+          <%= overallBillRange.min === null ? "-" : `${formatTHB(overallBillRange.min)} - ${formatTHB(overallBillRange.max)}` %>
+        </strong>
+      </div>
+      <div class="report-kpi-item">
+        <span class="report-kpi-label">Paid / Collected Rate</span>
+        <strong class="report-kpi-value"><%= formatPercent(overallPaidRate) %> / <%= formatPercent(overallCollectionRate) %></strong>
+        <span class="report-meta-hint"><%= paymentMethods.length ? paymentMethods.join(", ") : "No payment methods used" %></span>
+      </div>
+    </div>
+    <div class="billing-report-wrap">
+      <table class="billing-report-table">
+        <thead>
           <tr>
-            <td><%= report.monthLabel || report.monthKey || "-" %></td>
-            <td><%= report.billsCount || 0 %></td>
-            <td><%= report.paidBillsCount || 0 %></td>
-            <td><%= report.unpaidBillsCount || 0 %></td>
-            <td><%= report.overdueBillsCount || 0 %></td>
-            <td><%= report.paymentsCount || 0 %></td>
-            <td><%= formatTHB(report.totalAmount) %></td>
-            <td><%= formatTHB(report.paidAmount) %></td>
-            <td><%= formatTHB(report.outstandingAmount) %></td>
+            <th>Bill Month</th>
+            <th class="numeric">Total Bills</th>
+            <th class="numeric">Paid</th>
+            <th class="numeric">Unpaid</th>
+            <th class="numeric">Overdue</th>
+            <th class="numeric">Payments</th>
+            <th class="numeric">Total Amount (THB)</th>
+            <th class="numeric">Paid Amount (THB)</th>
+            <th class="numeric">Outstanding (THB)</th>
+            <th class="numeric">Avg Bill (THB)</th>
+            <th class="numeric">Paid / Collected</th>
           </tr>
-        <% }) %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <% monthReports.forEach((report) => { %>
+            <tr>
+              <td>
+                <%= report.monthLabel || report.monthKey || "-" %>
+                <span class="report-subline">Due: <%= formatDueWindow(report.dueWindowStart, report.dueWindowEnd) %></span>
+                <span class="report-subline">Range: <%= formatTHB(report.minBillAmount) %> - <%= formatTHB(report.maxBillAmount) %></span>
+              </td>
+              <td class="numeric"><%= report.billsCount || 0 %></td>
+              <td class="numeric"><%= report.paidBillsCount || 0 %></td>
+              <td class="numeric"><%= report.unpaidBillsCount || 0 %></td>
+              <td class="numeric"><%= report.overdueBillsCount || 0 %></td>
+              <td class="numeric"><%= report.paymentsCount || 0 %></td>
+              <td class="numeric"><%= formatTHB(report.totalAmount) %></td>
+              <td class="numeric"><%= formatTHB(report.paidAmount) %></td>
+              <td class="numeric"><%= formatTHB(report.outstandingAmount) %></td>
+              <td class="numeric"><%= formatTHB(report.avgBillAmount) %></td>
+              <td class="numeric"><%= formatPercent(report.paidRate) %> / <%= formatPercent(report.collectionRate) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   <% } %>
 </section>
 
-<section class="card">
+<section class="card no-print">
   <h3>Meters and Bills</h3>
   <% if (!userMeters.length) { %>
     <div class="empty">This user has no meters.</div>
@@ -133,7 +321,7 @@
                 <th>Amount (THB)</th>
                 <th>Due Date</th>
                 <th>Status</th>
-                <th>Action</th>
+                <th class="no-print">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -145,7 +333,7 @@
                   <td><%= formatTHB(b.amount) %></td>
                   <td><%= b.due_date || "-" %></td>
                   <td><%= b.status || "-" %></td>
-                  <td>
+                  <td class="no-print">
                     <% if (paid) { %>
                       <span class="muted">Paid</span>
                     <% } else { %>
@@ -161,5 +349,13 @@
     <% }) %>
   <% } %>
 </section>
+
+<% if (isPrintMode) { %>
+  <script>
+    window.addEventListener("load", function () {
+      window.print();
+    });
+  </script>
+<% } %>
 
 <%- include("partials/layout-bottom") %>

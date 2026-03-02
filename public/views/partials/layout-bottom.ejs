@@ -1,3 +1,42 @@
   </main>
+  <script>
+    (function () {
+      var key = "flowbills-theme";
+      var root = document.documentElement;
+      var toggle = document.querySelector("[data-theme-toggle]");
+
+      function currentTheme() {
+        return root.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      }
+
+      function applyTheme(theme) {
+        var normalized = theme === "dark" ? "dark" : "light";
+        root.setAttribute("data-theme", normalized);
+        root.style.colorScheme = normalized;
+      }
+
+      function syncToggleLabel() {
+        if (!toggle) return;
+        var isDark = currentTheme() === "dark";
+        toggle.textContent = isDark ? "Light Mode" : "Dark Mode";
+        toggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+        toggle.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+      }
+
+      syncToggleLabel();
+      if (!toggle) return;
+
+      toggle.addEventListener("click", function () {
+        var nextTheme = currentTheme() === "dark" ? "light" : "dark";
+        applyTheme(nextTheme);
+        syncToggleLabel();
+        try {
+          localStorage.setItem(key, nextTheme);
+        } catch (error) {
+          // Ignore storage write failures and keep current session behavior.
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

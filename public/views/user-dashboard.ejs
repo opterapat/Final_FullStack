@@ -5,6 +5,12 @@
   const bills = Array.isArray(recentBills) ? recentBills : [];
   const payments = Array.isArray(recentPayments) ? recentPayments : [];
   const monthReports = Array.isArray(monthlyReport) ? monthlyReport : [];
+  const formatPercent = (value) => `${Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "0.0"}%`;
+  const formatDueWindow = (start, end) => {
+    if (!start && !end) return "-";
+    if (start && end && start !== end) return `${start} -> ${end}`;
+    return start || end;
+  };
 %>
 
 <section class="card page-head">
@@ -52,36 +58,46 @@
   <% if (!monthReports.length) { %>
     <div class="empty">No monthly expense data available.</div>
   <% } else { %>
-    <table>
-      <thead>
-        <tr>
-          <th>Bill Month</th>
-          <th>Total Bills</th>
-          <th>Paid</th>
-          <th>Unpaid</th>
-          <th>Overdue</th>
-          <th>Payments</th>
-          <th>Total Amount (THB)</th>
-          <th>Paid Amount (THB)</th>
-          <th>Outstanding (THB)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% monthReports.forEach((report) => { %>
+    <div class="billing-report-wrap">
+      <table class="billing-report-table">
+        <thead>
           <tr>
-            <td><%= report.monthLabel || report.monthKey || "-" %></td>
-            <td><%= report.billsCount || 0 %></td>
-            <td><%= report.paidBillsCount || 0 %></td>
-            <td><%= report.unpaidBillsCount || 0 %></td>
-            <td><%= report.overdueBillsCount || 0 %></td>
-            <td><%= report.paymentsCount || 0 %></td>
-            <td><%= formatTHB(report.totalAmount) %></td>
-            <td><%= formatTHB(report.paidAmount) %></td>
-            <td><%= formatTHB(report.outstandingAmount) %></td>
+            <th>Bill Month</th>
+            <th class="numeric">Total Bills</th>
+            <th class="numeric">Paid</th>
+            <th class="numeric">Unpaid</th>
+            <th class="numeric">Overdue</th>
+            <th class="numeric">Payments</th>
+            <th class="numeric">Total Amount (THB)</th>
+            <th class="numeric">Paid Amount (THB)</th>
+            <th class="numeric">Outstanding (THB)</th>
+            <th class="numeric">Avg Bill (THB)</th>
+            <th class="numeric">Paid / Collected</th>
           </tr>
-        <% }) %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <% monthReports.forEach((report) => { %>
+            <tr>
+              <td>
+                <%= report.monthLabel || report.monthKey || "-" %>
+                <span class="report-subline">Due: <%= formatDueWindow(report.dueWindowStart, report.dueWindowEnd) %></span>
+                <span class="report-subline">Range: <%= formatTHB(report.minBillAmount) %> - <%= formatTHB(report.maxBillAmount) %></span>
+              </td>
+              <td class="numeric"><%= report.billsCount || 0 %></td>
+              <td class="numeric"><%= report.paidBillsCount || 0 %></td>
+              <td class="numeric"><%= report.unpaidBillsCount || 0 %></td>
+              <td class="numeric"><%= report.overdueBillsCount || 0 %></td>
+              <td class="numeric"><%= report.paymentsCount || 0 %></td>
+              <td class="numeric"><%= formatTHB(report.totalAmount) %></td>
+              <td class="numeric"><%= formatTHB(report.paidAmount) %></td>
+              <td class="numeric"><%= formatTHB(report.outstandingAmount) %></td>
+              <td class="numeric"><%= formatTHB(report.avgBillAmount) %></td>
+              <td class="numeric"><%= formatPercent(report.paidRate) %> / <%= formatPercent(report.collectionRate) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   <% } %>
 </section>
 

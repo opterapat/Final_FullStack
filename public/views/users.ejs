@@ -9,6 +9,40 @@
   </div>
 </section>
 
+<% if (list.length) { %>
+  <section class="card">
+    <form class="form-grid" onsubmit="return false;">
+      <div class="field">
+        <label for="user_search">Search User</label>
+        <input
+          id="user_search"
+          type="text"
+          list="user_search_options"
+          placeholder="Type ID, name, email, or phone"
+          aria-label="Type to search users"
+          autocomplete="off"
+        >
+        <datalist id="user_search_options">
+          <% list.forEach((u) => { %>
+            <% const uid = u.user_id || u.id; %>
+            <option value="<%= uid %> - <%= u.name || 'Unnamed' %>"></option>
+            <% if (u.email) { %>
+              <option value="<%= u.email %>"></option>
+            <% } %>
+            <% if (u.phone) { %>
+              <option value="<%= u.phone %>"></option>
+            <% } %>
+          <% }) %>
+        </datalist>
+      </div>
+
+      <div class="actions">
+        <button id="clear_user_search" class="btn secondary" type="button">Clear</button>
+      </div>
+    </form>
+  </section>
+<% } %>
+
 <section class="card">
   <% if (!list.length) { %>
     <div class="empty">No users found.</div>
@@ -28,7 +62,14 @@
       <tbody>
         <% list.forEach((u) => { %>
           <% const uid = u.user_id || u.id; %>
-          <tr>
+          <tr
+            data-user-row
+            data-user-id="<%= uid %>"
+            data-user-name="<%= (u.name || '').toString().toLowerCase() %>"
+            data-user-email="<%= (u.email || '').toString().toLowerCase() %>"
+            data-user-phone="<%= (u.phone || '').toString().toLowerCase() %>"
+            data-user-role="<%= (u.role || 'user').toString().toLowerCase() %>"
+          >
             <td><%= uid %></td>
             <td><%= u.name || "-" %></td>
             <td><%= u.email || "-" %></td>
@@ -38,6 +79,8 @@
             <td>
               <div class="actions">
                 <a class="btn secondary" href="<%= rolePath('/user/' + uid) %>">View</a>
+                <a class="btn secondary" href="<%= rolePath('/user/' + uid + '/invoices?print=1') %>" target="_blank" rel="noopener">Print Invoices</a>
+                <a class="btn secondary" href="<%= rolePath('/user/' + uid + '?print=1') %>" target="_blank" rel="noopener">Print Monthly</a>
                 <a class="btn secondary" href="<%= rolePath('/update/' + uid) %>">Edit</a>
                 <a class="btn danger" href="<%= rolePath('/delete/' + uid) %>" onclick="return confirm('Delete this user?')">Delete</a>
               </div>
@@ -46,7 +89,60 @@
         <% }) %>
       </tbody>
     </table>
+    <div id="user_filter_empty" class="empty" style="display:none; margin-top:12px;">
+      No users match this search.
+    </div>
   <% } %>
 </section>
+
+<% if (list.length) { %>
+  <script>
+    (function () {
+      var search = document.getElementById("user_search");
+      var clearButton = document.getElementById("clear_user_search");
+      var rows = Array.prototype.slice.call(document.querySelectorAll("[data-user-row]"));
+      var emptyState = document.getElementById("user_filter_empty");
+
+      if (!search || !rows.length) {
+        return;
+      }
+
+      function applyFilter() {
+        var keyword = String(search.value || "").trim().toLowerCase();
+        var visibleCount = 0;
+
+        rows.forEach(function (row) {
+          var rowId = String(row.getAttribute("data-user-id") || "").trim();
+          var haystack = [
+            rowId.toLowerCase(),
+            String(row.getAttribute("data-user-name") || ""),
+            String(row.getAttribute("data-user-email") || ""),
+            String(row.getAttribute("data-user-phone") || ""),
+            String(row.getAttribute("data-user-role") || "")
+          ].join(" ");
+          var isMatch = !keyword || haystack.indexOf(keyword) !== -1;
+          row.style.display = isMatch ? "" : "none";
+          if (isMatch) {
+            visibleCount += 1;
+          }
+        });
+
+        if (emptyState) {
+          emptyState.style.display = visibleCount ? "none" : "block";
+        }
+      }
+
+      search.addEventListener("input", applyFilter);
+      search.addEventListener("change", applyFilter);
+
+      if (clearButton) {
+        clearButton.addEventListener("click", function () {
+          search.value = "";
+          applyFilter();
+        });
+      }
+    })();
+  </script>
+<% } %>
 
 <%- include("partials/layout-bottom") %>

@@ -19,6 +19,7 @@ const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
   month: "long",
   year: "numeric"
 });
+const allowedNoticeTypes = new Set(["info", "success", "warning", "error"]);
 
 function formatTHB(value, fallback = "-") {
   const numericValue = Number.parseFloat(value);
@@ -70,6 +71,8 @@ function buildMonthlyExpenseReport(bills, payments) {
     const amount = Number.parseFloat(bill.amount);
     const normalizedAmount = Number.isFinite(amount) ? amount : 0;
     const linkedPayments = billId ? (paymentsByBillId[billId] || []) : [];
+    const dueDate = String(bill.due_date || "").trim();
+    const dueDateTs = dueDate ? new Date(dueDate).getTime() : NaN;
 
     if (!monthlyReportMap[monthKey]) {
       monthlyReportMap[monthKey] = {
@@ -82,7 +85,13 @@ function buildMonthlyExpenseReport(bills, payments) {
         paymentsCount: 0,
         totalAmount: 0,
         paidAmount: 0,
-        outstandingAmount: 0
+        outstandingAmount: 0,
+        minBillAmount: null,
+        maxBillAmount: null,
+        dueWindowStart: null,
+        dueWindowEnd: null,
+        dueWindowStartTs: null,
+        dueWindowEndTs: null
       };
     }
 
@@ -90,6 +99,22 @@ function buildMonthlyExpenseReport(bills, payments) {
     monthSummary.billsCount += 1;
     monthSummary.paymentsCount += linkedPayments.length;
     monthSummary.totalAmount += normalizedAmount;
+    if (monthSummary.minBillAmount === null || normalizedAmount < monthSummary.minBillAmount) {
+      monthSummary.minBillAmount = normalizedAmount;
+    }
+    if (monthSummary.maxBillAmount === null || normalizedAmount > monthSummary.maxBillAmount) {
+      monthSummary.maxBillAmount = normalizedAmount;
+    }
+    if (Number.isFinite(dueDateTs)) {
+      if (monthSummary.dueWindowStartTs === null || dueDateTs < monthSummary.dueWindowStartTs) {
+        monthSummary.dueWindowStartTs = dueDateTs;
+        monthSummary.dueWindowStart = dueDate;
+      }
+      if (monthSummary.dueWindowEndTs === null || dueDateTs > monthSummary.dueWindowEndTs) {
+        monthSummary.dueWindowEndTs = dueDateTs;
+        monthSummary.dueWindowEnd = dueDate;
+      }
+    }
 
     if (status === "paid") {
       monthSummary.paidBillsCount += 1;
@@ -105,7 +130,31 @@ function buildMonthlyExpenseReport(bills, payments) {
     monthSummary.outstandingAmount += normalizedAmount;
   });
 
-  return Object.values(monthlyReportMap).sort((left, right) => {
+  return Object.values(monthlyReportMap).map((summary) => {
+    const billsCount = summary.billsCount || 0;
+    const totalAmount = summary.totalAmount || 0;
+    const paidAmount = summary.paidAmount || 0;
+
+    return {
+      monthKey: summary.monthKey,
+      monthLabel: summary.monthLabel,
+      billsCount: summary.billsCount,
+      paidBillsCount: summary.paidBillsCount,
+      unpaidBillsCount: summary.unpaidBillsCount,
+      overdueBillsCount: summary.overdueBillsCount,
+      paymentsCount: summary.paymentsCount,
+      totalAmount: summary.totalAmount,
+      paidAmount: summary.paidAmount,
+      outstandingAmount: summary.outstandingAmount,
+      minBillAmount: summary.minBillAmount === null ? 0 : summary.minBillAmount,
+      maxBillAmount: summary.maxBillAmount === null ? 0 : summary.maxBillAmount,
+      avgBillAmount: billsCount ? (totalAmount / billsCount) : 0,
+      paidRate: billsCount ? ((summary.paidBillsCount / billsCount) * 100) : 0,
+      collectionRate: totalAmount ? ((paidAmount / totalAmount) * 100) : 0,
+      dueWindowStart: summary.dueWindowStart,
+      dueWindowEnd: summary.dueWindowEnd
+    };
+  }).sort((left, right) => {
     const leftIsDated = /^\d{4}-\d{2}$/.test(left.monthKey);
     const rightIsDated = /^\d{4}-\d{2}$/.test(right.monthKey);
 
@@ -146,6 +195,50 @@ function safeRedirectPath(rawPath) {
   return path;
 }
 
+function normalizeNoticeType(rawType, fallback = "warning") {
+  const type = String(rawType || "").trim().toLowerCase();
+  return allowedNoticeTypes.has(type) ? type : fallback;
+}
+
+function sanitizeNoticeText(rawText) {
+  const text = String(rawText || "").trim();
+  if (!text) return null;
+  if (text.length <= 220) return text;
+  return `${text.slice(0, 217)}...`;
+}
+
+function withNotice(rawPath, message, type = "warning") {
+  const path = safeRedirectPath(rawPath);
+  const text = sanitizeNoticeText(message);
+  if (!text) return path;
+
+  const separator = path.includes("?") ? "&" : "?";
+  const noticeType = normalizeNoticeType(type, "warning");
+  return `${path}${separator}notice=${encodeURIComponent(text)}&noticeType=${encodeURIComponent(noticeType)}`;
+}
+
+function deriveUsername(user) {
+  const explicitUsername = String(user && user.username ? user.username : "").trim();
+  if (explicitUsername) return explicitUsername;
+
+  const email = String(user && user.email ? user.email : "").trim().toLowerCase();
+  if (email.includes("@")) {
+    const localPart = email.split("@")[0];
+    const normalized = localPart.replace(/[^a-z0-9._-]/gi, "_").trim();
+    if (normalized) return normalized;
+  }
+
+  const name = String(user && user.name ? user.name : "").trim().toLowerCase();
+  if (name) {
+    const normalized = name.replace(/\s+/g, ".").replace(/[^a-z0-9._-]/gi, "");
+    if (normalized) return normalized;
+  }
+
+  const userId = String(user && (user.user_id || user.id) ? (user.user_id || user.id) : "").trim();
+  if (userId) return `user${userId}`;
+  return "unknown";
+}
+
 function setAuthCookies(res, user) {
   const maxAge = 60 * 60 * 24 * 30;
   const role = normalizeRole(user.role);
@@ -173,7 +266,9 @@ function clearAuthCookies(res) {
 function requireAdmin(req, res, next) {
   if (!req.currentUser) {
     const nextPath = encodeURIComponent(req.originalUrl || "/");
-    return res.redirect(`/login?next=${nextPath}`);
+    return res.redirect(
+      withNotice(`/login?next=${nextPath}`, "Please log in to continue.", "warning")
+    );
   }
 
   if (req.currentRole === "admin") return next();
@@ -185,6 +280,10 @@ function requireAdmin(req, res, next) {
     return res.status(403).json({ message });
   }
 
+  res.locals.notice = {
+    type: "warning",
+    text: message
+  };
   return res.status(403).render("access-denied", { message });
 }
 
@@ -197,7 +296,9 @@ function requireAuth(req, res, next) {
   }
 
   const nextPath = encodeURIComponent(req.originalUrl || "/");
-  return res.redirect(`/login?next=${nextPath}`);
+  return res.redirect(
+    withNotice(`/login?next=${nextPath}`, "Please log in to continue.", "warning")
+  );
 }
 
 // Set template engine
@@ -236,6 +337,14 @@ app.use((req, res, next) => {
     : role === "admin"
       ? "Administrator"
       : "General User";
+  const noticeText = sanitizeNoticeText(req.query.notice);
+  const noticeType = normalizeNoticeType(req.query.noticeType, "warning");
+  res.locals.notice = noticeText
+    ? {
+      type: noticeType,
+      text: noticeText
+    }
+    : null;
   res.locals.rolePath = (targetPath) => targetPath;
   res.locals.formatTHB = formatTHB;
   next();
@@ -666,6 +775,8 @@ app.get('/users', requireAdmin, async (req, res) => {
 // Show one user
 app.get('/user/:id', requireAdmin, async (req, res) => {
   try {
+    const printMode = String(req.query.print || "").trim() === "1";
+
     // Fetch user
     const userResp = await axios.get(`${base_url}/users/${req.params.id}`);
     const user = userResp.data;
@@ -717,16 +828,98 @@ app.get('/user/:id', requireAdmin, async (req, res) => {
       userBillIdSet.has(String(payment.bill_id || "").trim())
     );
     const monthlyReport = buildMonthlyExpenseReport(userBills, userPayments);
+    const generatedAt = new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(new Date());
 
     res.render('user', {
       user,
       meters: userMeters,
       payments: userPayments,
-      monthlyReport
+      monthlyReport,
+      printMode,
+      generatedAt
     });
   } catch (err) {
     console.error(err && err.message ? err.message : err);
     res.status(500).send('Error loading user');
+  }
+});
+
+app.get('/user/:id/invoices', requireAdmin, async (req, res) => {
+  const printMode = String(req.query.print || "").trim() === "1";
+
+  try {
+    const [userResp, metersResp, billsResp, utilitiesResp] = await Promise.all([
+      axios.get(`${base_url}/users/${req.params.id}`),
+      axios.get(`${base_url}/meters`),
+      axios.get(`${base_url}/bills`),
+      axios.get(`${base_url}/utilities`)
+    ]);
+
+    const user = userResp.data || {};
+    const userId = String(user.user_id || user.id || "").trim();
+    const meters = (metersResp.data || []).filter(
+      (meter) => String(meter.user_id) === userId
+    );
+    const meterById = {};
+    meters.forEach((meter) => {
+      meterById[String(meter.meter_id)] = meter;
+    });
+    const meterIds = new Set(Object.keys(meterById));
+
+    const utilityNameById = {};
+    (utilitiesResp.data || []).forEach((utility) => {
+      utilityNameById[String(utility.utility_id)] = utility.utility_name;
+    });
+
+    const openBills = (billsResp.data || [])
+      .filter((bill) => {
+        const meterId = String(bill.meter_id || "").trim();
+        const status = String(bill.status || "").toLowerCase().trim();
+        return meterIds.has(meterId) && (status === "unpaid" || status === "overdue");
+      })
+      .map((bill) => {
+        const meterId = String(bill.meter_id || "").trim();
+        const meter = meterById[meterId] || null;
+        const utilityName = meter ? utilityNameById[String(meter.utility_id)] || null : null;
+        return {
+          ...bill,
+          meter_number: meter ? (meter.meter_number || meter.meter_reading || null) : null,
+          utility_name: utilityName
+        };
+      })
+      .sort((left, right) => {
+        const leftTime = new Date(left.due_date || 0).getTime();
+        const rightTime = new Date(right.due_date || 0).getTime();
+        return leftTime - rightTime;
+      });
+
+    const totalDue = openBills.reduce((sum, bill) => {
+      const amount = Number.parseFloat(bill.amount);
+      return sum + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
+    const generatedAt = new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(new Date());
+
+    return res.render('user-invoices', {
+      user,
+      bills: openBills,
+      totalDue,
+      generatedAt,
+      printMode
+    });
+  } catch (err) {
+    const status = err.response && err.response.status;
+    if (status === 404) {
+      return res.status(404).send('User not found');
+    }
+
+    console.error('User invoice collection load failed:', err.message);
+    return res.status(500).send('Error loading user invoices');
   }
 });
 
@@ -770,6 +963,82 @@ app.get('/bills', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Error loading bills');
+  }
+});
+
+app.get('/invoice/:billId', requireAuth, async (req, res) => {
+  const printMode = String(req.query.print || "").trim() === "1";
+
+  try {
+    const billResp = await axios.get(`${base_url}/bills/${req.params.billId}`);
+    const bill = billResp.data || null;
+    if (!bill) {
+      return res.status(404).send('Invoice not found');
+    }
+
+    const [metersResp, utilitiesResp, paymentsResp] = await Promise.all([
+      axios.get(`${base_url}/meters`),
+      axios.get(`${base_url}/utilities`),
+      axios.get(`${base_url}/payments`)
+    ]);
+
+    const meter = (metersResp.data || []).find(
+      (m) => String(m.meter_id) === String(bill.meter_id)
+    ) || null;
+
+    if (req.currentUser.role !== "admin") {
+      const ownsBill = meter && String(meter.user_id) === String(req.currentUser.user_id);
+      if (!ownsBill) {
+        return res.status(403).render('access-denied', {
+          message: "You can only print invoices for your own bills."
+        });
+      }
+    }
+
+    const utility = (utilitiesResp.data || []).find(
+      (u) => String(u.utility_id) === String(meter && meter.utility_id)
+    ) || null;
+    const payment = (paymentsResp.data || []).find(
+      (p) => String(p.bill_id) === String(bill.bill_id)
+    ) || null;
+
+    let accountUser = null;
+    if (meter && meter.user_id) {
+      try {
+        const userResp = await axios.get(`${base_url}/users/${meter.user_id}`);
+        accountUser = userResp.data || null;
+      } catch (userErr) {
+        accountUser = null;
+      }
+    }
+
+    if (!accountUser && req.currentUser) {
+      accountUser = req.currentUser;
+    }
+
+    const accountUsername = deriveUsername(accountUser || {});
+    const generatedAt = new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(new Date());
+
+    return res.render('invoice', {
+      bill,
+      meter,
+      utility,
+      payment,
+      accountUser,
+      accountUsername,
+      generatedAt,
+      printMode
+    });
+  } catch (err) {
+    const status = err.response && err.response.status;
+    if (status === 404) {
+      return res.status(404).send('Invoice not found');
+    }
+    console.error('Invoice load failed:', err.message);
+    return res.status(500).send('Error loading invoice');
   }
 });
 
@@ -909,11 +1178,15 @@ app.post('/pay-bill/:billId', requireAuth, async (req, res) => {
       transaction_ref: req.body.transaction_ref
     };
     await axios.post(`${base_url}/payments`, payload);
-    res.redirect('/payments?paid=1');
+    res.redirect(withNotice(
+      '/payments',
+      'Payment completed and bill marked as paid.',
+      'success'
+    ));
   } catch (err) {
     const apiMessage = err.response && err.response.data && err.response.data.message;
     const message = apiMessage || 'Payment failed';
-    res.redirect(`/pay-bill/${req.params.billId}?error=${encodeURIComponent(message)}`);
+    res.redirect(withNotice(`/pay-bill/${req.params.billId}`, message, "error"));
   }
 });
 

@@ -4,6 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= title ? `${title} | FlowBills` : "FlowBills" %></title>
+  <script>
+    (function () {
+      var theme = "light";
+      try {
+        var savedTheme = localStorage.getItem("flowbills-theme");
+        var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        theme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : (prefersDark ? "dark" : "light");
+      } catch (error) {
+        theme = "light";
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.style.colorScheme = theme;
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap">
@@ -17,6 +31,7 @@
         <h1>FlowBills</h1>
       </div>
       <div class="role-panel">
+        <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">Dark Mode</button>
         <% if (isAuthenticated && currentUser) { %>
           <span class="role-badge"><%= roleLabel || "User" %>: <%= currentUser.name %></span>
           <a class="role-link" href="/logout">Logout</a>
@@ -51,3 +66,8 @@
     <% } %>
   </header>
   <main class="page">
+    <% if (notice && notice.text) { %>
+      <section class="notice notice-<%= notice.type || 'warning' %>" role="status" aria-live="polite">
+        <p><%= notice.text %></p>
+      </section>
+    <% } %>

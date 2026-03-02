@@ -1,0 +1,69 @@
+<%- include("partials/layout-top", { title: "Invoice" }) %>
+
+<%
+  const data = bill || {};
+  const meterInfo = meter || {};
+  const utilityInfo = utility || {};
+  const account = accountUser || {};
+  const invoicePayment = payment || null;
+  const isPrintMode = !!printMode;
+%>
+
+<section class="card page-head">
+  <h2>Invoice</h2>
+  <p>Bill ID: <strong><%= data.bill_id || "-" %></strong></p>
+  <div class="actions no-print">
+    <a class="btn secondary" href="<%= rolePath('/bills') %>">Back to Bills</a>
+    <% if (data.bill_id) { %>
+      <a class="btn" href="<%= rolePath('/invoice/' + data.bill_id + '?print=1') %>" target="_blank" rel="noopener">Print Invoice</a>
+    <% } %>
+  </div>
+</section>
+
+<section class="split">
+  <article class="card">
+    <h3>Account Holder</h3>
+    <p><strong>Name:</strong> <%= account.name || "-" %></p>
+    <p><strong>Username:</strong> <%= accountUsername || "-" %></p>
+    <p><strong>Email:</strong> <%= account.email || "-" %></p>
+  </article>
+
+  <article class="card">
+    <h3>Invoice Details</h3>
+    <p><strong>Generated:</strong> <%= generatedAt || "-" %></p>
+    <p><strong>Bill Month:</strong> <%= data.bill_month || "-" %></p>
+    <p><strong>Amount (THB):</strong> <%= formatTHB(data.amount) %></p>
+    <p><strong>Due Date:</strong> <%= data.due_date || "-" %></p>
+    <p><strong>Status:</strong> <%= data.status || "-" %></p>
+  </article>
+</section>
+
+<section class="card">
+  <h3>Service Information</h3>
+  <p><strong>Meter ID:</strong> <%= data.meter_id || meterInfo.meter_id || "-" %></p>
+  <p><strong>Meter Number:</strong> <%= meterInfo.meter_number || meterInfo.meter_reading || "-" %></p>
+  <p><strong>Utility:</strong> <%= utilityInfo.utility_name || "-" %></p>
+  <p><strong>Bill Created:</strong> <%= data.created_at || "-" %></p>
+</section>
+
+<section class="card">
+  <h3>Payment Information</h3>
+  <% if (!invoicePayment) { %>
+    <div class="empty">No payment has been recorded for this bill yet.</div>
+  <% } else { %>
+    <p><strong>Payment ID:</strong> <%= invoicePayment.payment_id || "-" %></p>
+    <p><strong>Method:</strong> <%= invoicePayment.payment_method || "-" %></p>
+    <p><strong>Payment Date:</strong> <%= invoicePayment.payment_date || "-" %></p>
+    <p><strong>Transaction Reference:</strong> <%= invoicePayment.transaction_ref || "-" %></p>
+  <% } %>
+</section>
+
+<% if (isPrintMode) { %>
+  <script>
+    window.addEventListener("load", function () {
+      window.print();
+    });
+  </script>
+<% } %>
+
+<%- include("partials/layout-bottom") %>

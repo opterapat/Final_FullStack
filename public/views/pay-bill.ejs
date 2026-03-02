@@ -11,6 +11,9 @@
   <p>Bill ID: <strong><%= data.bill_id || "-" %></strong></p>
   <div class="actions">
     <a class="btn secondary" href="<%= rolePath('/bills') %>">Back to Bills</a>
+    <% if (data.bill_id) { %>
+      <a class="btn secondary" href="<%= rolePath('/invoice/' + data.bill_id + '?print=1') %>" target="_blank" rel="noopener">Print Invoice</a>
+    <% } %>
     <a class="btn secondary" href="<%= rolePath('/payments') %>">View Payments</a>
   </div>
 </section>
